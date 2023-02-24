@@ -5,7 +5,7 @@ from amuse.datamodel import Particles, new_regular_grid
 from venice_src.venice import Venice
 
 from extra_funcs import *
-from Mordasini2015_coreaccretion import *
+from module_coreaccretion import *
 from module_gasevolution import *
 from module_migration import *
 
