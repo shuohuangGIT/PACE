@@ -4,7 +4,7 @@ from amuse.units import units, constants
 from amuse.datamodel import Particles, Particle, new_regular_grid
 from venice import Venice
 
-from Mordasini2015_funcs import *
+from extra_funcs import *
 from amuse.community.secularmultiple.interface import SecularMultiple
 
 class SecularEvolution_migration:
