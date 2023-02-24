@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from amuse.units import units
 from amuse.datamodel import Particles, new_regular_grid
-from venice import Venice
+from venice_src.venice import Venice
 
 from extra_funcs import *
 from Mordasini2015_coreaccretion import *
