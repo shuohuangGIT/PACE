@@ -27,7 +27,7 @@ def setup_single_pps (timestep, verbose=False):
 
     # Set coupling timestep; matrix is symmetric, so no need to set [1,0]
     system.timestep_matrix[0,1] = timestep
-    system.timestep_matrix[0,2] = timestep
+    system.timestep_matrix[0,2] = timestep/2
     system.timestep_matrix[1,2] = timestep
 
     system.add_channel(0,2, from_attributes = ['core_mass'], 
@@ -170,8 +170,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [1e1, 1e1] | units.MEarth
-    a = [7., 4] | units.AU
+    M = [1e-5, 1e-3, 1e-3] | units.MEarth
+    a = [2.7, 20, 30] | units.AU
 
     planets = Particles(len(M),
         core_mass=M,
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     )
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
-    dt = 0.1 | units.kyr
+    dt = 0.1 | units.kyr # timestep of the matrix
     end_time = 400. | units.kyr
     dt_plot = end_time/400
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)

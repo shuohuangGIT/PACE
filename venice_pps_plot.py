@@ -20,9 +20,11 @@ solid = load_data_disk['solid']
 
 fig = plt.figure(0,figsize=(10,8))
 ax = plt.subplot(2,2,3)
+ax.set_xscale('log')
+ax.set_yscale('log')
 for i in range(Mc.shape[1]):
-    ax.plot(t[:,i], Mc[:,i],label='core mass')
-    ax.plot(t[:,i], Me[:,i], label='atmosphere')
+    ax.plot(t[:,i], Mc[:,i],label=r'$M_\mathrm{c,%i}$'%(i+1))
+    ax.plot(t[:,i], Me[:,i], label=r'$M_\mathrm{gas,%i}$'%(i+1))
 ax.set_xlabel('Time [kyr]')
 ax.set_ylabel('M [$M_\oplus$]')
 
