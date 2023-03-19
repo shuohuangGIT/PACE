@@ -18,6 +18,7 @@ class DiskGasEvolution:
         self.disk.surface_gas = 0 | units.g/units.cm**2
         self.disk_lifetime = 1 | units.Myr
         self.sigma_dot_wind = -1e-7 | units.MSun/units.yr/(100*units.au)**2
+        self.sigmag_min = 1e-20|units.g/units.cm**2
 
     def calculate_dt(self, model_time_i, end_time):
         return min(1 | units.kyr, end_time-model_time_i)
@@ -32,6 +33,7 @@ class DiskGasEvolution:
             
             # first order
             self.disk.surface_gas += self.calculate_sigma_dot()*dt
+            self.disk.surface_gas = np.maximum(self.disk.surface_gas,self.sigmag_min) # positive value
             model_time_i += dt
         self.model_time = end_time
 

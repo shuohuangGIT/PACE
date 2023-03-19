@@ -30,7 +30,7 @@ class CoreGasAccretion:
 
         # Model parameters
         self.CMdotc = 1
-        self.BL = 2*np.sqrt(3) #feeding zone size
+        self.BL = 6 #feeding zone size
         self.rhoe = 1 | units.g/units.cm**3
         self.mpla = 1e18 | units.g
 
@@ -69,7 +69,7 @@ class CoreGasAccretion:
                 if (Rdisk[j]<=Rmin) & (Rdisk[j+1]>Rmin):
                     imini=j
 
-                if (Rdisk[j]<=Rmax) & (Rdisk[j+1]>Rmax):
+                if (Rdisk[j]<Rmax) & (Rdisk[j+1]>=Rmax):
                     imaxi=j
                 
                 if (Rdisk[j]<=ap) & (Rdisk[j+1]>ap):
@@ -106,6 +106,7 @@ class CoreGasAccretion:
             if (Sigmadmean[i]<1e-20|units.g/units.cm**2):
                 mdotc[i] = 0 | units.g/units.s
             else:
+                Sigmag_p0 = 0|units.g/units.cm**2
 
                 tau_cgas = (1.2e5|units.yr) *(Sigmadmean[i]/(10|units.g/units.cm**2))**(-1)*(ap/(1|units.AU))**(0.5)*(mp/(1|units.MEarth))**(1/3)*(Mstar/(1|units.MSun))**(-1/6)*((Sigmag_p/(2400|units.g/units.cm**2))**(-2/5)*(ap/(1|units.AU))**(2/20)*(self.mpla/(1e18|units.g))**(2/15))
 
@@ -117,9 +118,6 @@ class CoreGasAccretion:
                 Vsurf=np.sqrt(constants.G*mp/Rp)
                 Vesc=np.sqrt(2*constants.G*Mstar/ap)
                 tau_cnog *= 1+(Vsurf/Vesc)**4
-
-                if tau_cnog<tau_cgas:
-                    print(1)
 
                 tau_c = min(tau_cgas, tau_cnog)
 
@@ -143,9 +141,9 @@ class CoreGasAccretion:
         alpha = self.alpha
         flub = self.flub
         for i in range(len(self.planets)):
-            M_crit = 0*(10|units.MEarth)*(Mdotcore[i]/(1e-6|units.MEarth/units.yr))**(1/4) * (kappa/(1|units.g/units.cm**2))**(1/4)
-            # M_crit = (10|units.MEarth)*(Mdotcore[i]/(1e-6|units.MEarth/units.yr))**(1/4) * (kappa/(1|units.g/units.cm**2))**(1/4)            
-            if mass_p[i] < M_crit:
+            # M_crit = 0*(10|units.MEarth)*(Mdotcore[i]/(1e-6|units.MEarth/units.yr))**(1/4) * (kappa/(1|units.g/units.cm**2))**(1/4)
+            M_crit = (10|units.MEarth)*(Mdotcore[i]/(1e-6|units.MEarth/units.yr))**(1/4) * (kappa/(1|units.g/units.cm**2))**(1/4)            
+            if mass_p[i] < M_crit:  
                 mdotg[i] = 0 | units.g/units.s
             else:
                 tau_KH = 10**pKH |units.yr *(mass_p[i]/(1|units.MEarth))**qKH *(kappa/(1e-2|units.g/units.cm**2))
@@ -154,12 +152,12 @@ class CoreGasAccretion:
             omega = np.sqrt(constants.G*Mstar/ap[i]**3)
 
             mdotbondi = Sigmag[int(ip[i])]/Hdisk[int(ip[i])]*omega*(Rhills(mass_p[i],Mstar,ap[i])/3)**3
-            mdotg[i] = min(mdotbondi,mdotg[i])
 
             nudisk = alpha*Hdisk[int(ip[i])]**2*omega
             Mdotdisk = flub*3*np.pi*nudisk*Sigmag[int(ip[i])]
-            mdotg[i] = min(mdotg[i],Mdotdisk)
+            mdotg[i] = min(mdotbondi,mdotg[i],Mdotdisk)
 
+            #Truncation at the gas isolation mass
             Meiso=(4.*np.pi*2.*ap[i]**2*Sigmag[int(ip[i])])**1.5/(3*Mstar)**0.5
             if me[i]>Meiso:
                 mdotg[i] = 0 | units.g/units.s
@@ -183,7 +181,6 @@ class CoreGasAccretion:
             dt = self.set_time_scale(Mdotcore, Mdotenvelop, model_time_i, end_time)
             model_time_i += dt
 
-            print(dt)
             for i in range(len(self.planets)):
                                     
                 if Mfeed[i]>dt* Mdotcore[i]:
@@ -202,12 +199,8 @@ class CoreGasAccretion:
                 for j in range(int(imin[i]), int(imax[i])+1):
                     Sigmad[j] = Sigmadmean[i].value_in(units.g/units.cm**2) | units.g/units.cm**2
 
-                # dt = min(abs(self.eta * self.planets[i].dynamical_mass / Mdotcore[i]),
-                #     end_time - model_time_i)
-
                 self.planets[i].core_mass += Mdotcore[i] * dt
                 self.planets[i].envelope_mass += Mdotenvelop[i] * dt
-            
         
         self.model_time = end_time # improved from pps.py
         self.disk.surface_solid = Sigmad
@@ -304,8 +297,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [1e-10] | units.MEarth
-    a = [7.] | units.AU
+    M = [1e-3] | units.MEarth
+    a = [20.] | units.AU
 
     planets = Particles(len(M),
         core_mass=M,
@@ -315,7 +308,7 @@ if __name__ == '__main__':
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
     dt = 100 | units.kyr
-    end_time = 400. | units.kyr
+    end_time = 4000. | units.kyr
     dt_plot = end_time/10
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
 
