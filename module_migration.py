@@ -24,13 +24,17 @@ class TypeIMigration:
 
         self.dt = pre_dt
 
-        self.eta = 0.01
+        self.eta = 0.1
+
+        self.C1 = 4e-3
+        self.C2 = 2e-3
 
     def cal_Rm(self, time):
         return (10|units.au) * np.exp(2*time/5/self.disk_lifetime)
     
     def set_time_step(self, eta, tau_I, model_time_i, end_time):
-        return min(abs(eta*tau_I), abs(end_time-model_time_i))
+        dt_hill = np.log(1+min(Rhills(self.planets.dynamical_mass,self.star.mass,self.planets.semimajor_axis)/self.planets.semimajor_axis))*tau_I
+        return min(abs(dt_hill), abs(end_time-model_time_i))
 
     def evolve_model (self, end_time):
         model_time_i = self.model_time
@@ -60,7 +64,7 @@ class TypeIMigration:
                 # print(H_p.value_in(units.au), Rhills(self.planets[i].dynamical_mass,self.star.mass,ap).value_in(units.au))
 
                 if H_p>Rhills(self.planets[i].dynamical_mass,self.star.mass,ap):
-                    tau_a[i] = 1/(2.728-1.082*pg)*(h_p)**2/q_pl*q_g*np.sqrt(ap**3/constants.G/self.star.mass)/2
+                    tau_a[i] = 1/(2.728-1.082*pg)*(h_p)**2/q_pl*q_g*np.sqrt(ap**3/constants.G/self.star.mass)/2 / self.C1
                 else:
                     #Type II
                     if ap<Rdisk[0]:
@@ -72,7 +76,8 @@ class TypeIMigration:
                                 im=j
                         omega_p_m = (ap/Rm)**(3/2)
                         adoti = ap * 3*np.sign((ap-Rm).value_in(units.au))*self.alpha*(Sigmag[im]*Rm**2/self.planets[i].dynamical_mass)*(Hdisk[im]/ap)**2 * omega_p_m * np.sqrt(constants.G*self.star.mass/Rm**3)
-                        tau_a[i] = -ap/adoti
+                        tau_a[i] = -ap/adoti / self.C2
+
             dt = self.set_time_step(self.eta, min(tau_a), model_time_i, end_time)
             model_time_i += dt
 
@@ -156,8 +161,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [100.] | units.MEarth
-    a = [1.] | units.AU
+    M = [1e-3] | units.MEarth
+    a = [20.] | units.AU
 
     planets = Particles(len(M),
         core_mass=M,
@@ -166,8 +171,8 @@ if __name__ == '__main__':
     )
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
-    dt = 10 | units.kyr
-    end_time = 10. | units.kyr
+    dt = 100 | units.kyr
+    end_time = 4000. | units.kyr
     dt_plot = end_time/100
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
 

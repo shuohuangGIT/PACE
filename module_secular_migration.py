@@ -49,7 +49,7 @@ class SecularEvolution_migration:
             model_time_i += dt
                 
             self.code.evolve_model(model_time_i)
-
+        
             # condidering damping of orbital elements, linear superposition
             A_dot = -self.planets.semimajor_axis/self.cal_tauA()
             E_dot = -self.planets.eccentricity/self.cal_tauE()
@@ -163,6 +163,7 @@ if __name__ == '__main__':
     M[1] = 1|units.MJupiter
     M[2] = 0.1|units.MJupiter
     a = [1., 4., 8.] | units.AU
+    a = a
     eccentricity = [0.1, 0.1, 0.3]
     inclination = np.deg2rad([0, 0.1, 0.1])
     argument_of_pericenter = np.deg2rad([10, 30, 60])

@@ -101,7 +101,7 @@ class CoreGasAccretion:
         for i in range(len(self.planets)):
             ap = self.planets[i].semimajor_axis
             mp = self.planets[i].dynamical_mass
-
+            mc = self.planets[i].core_mass
             Sigmag_p = Sigmag[int(ip[i])]
             if (Sigmadmean[i]<1e-20|units.g/units.cm**2):
                 mdotc[i] = 0 | units.g/units.s
@@ -121,7 +121,7 @@ class CoreGasAccretion:
 
                 tau_c = min(tau_cgas, tau_cnog)
 
-                mdotc[i] = self.CMdotc*mp/tau_c # CMdotc is an artificial number =1
+                mdotc[i] = self.CMdotc*mc/tau_c # CMdotc is an artificial number =1
         return mdotc, Sigmadmean, Mfeed, imax, imin, ip
 
     def Mdotgas(self, Mdotcore,ip):
@@ -141,26 +141,34 @@ class CoreGasAccretion:
         alpha = self.alpha
         flub = self.flub
         for i in range(len(self.planets)):
-            # M_crit = 0*(10|units.MEarth)*(Mdotcore[i]/(1e-6|units.MEarth/units.yr))**(1/4) * (kappa/(1|units.g/units.cm**2))**(1/4)
             M_crit = (10|units.MEarth)*(Mdotcore[i]/(1e-6|units.MEarth/units.yr))**(1/4) * (kappa/(1|units.g/units.cm**2))**(1/4)            
             if mass_p[i] < M_crit:  
                 mdotg[i] = 0 | units.g/units.s
             else:
-                tau_KH = 10**pKH |units.yr *(mass_p[i]/(1|units.MEarth))**qKH *(kappa/(1e-2|units.g/units.cm**2))
+                tau_KH = 10**pKH |units.yr *(mass_p[i]/(1|units.MEarth))**qKH *(kappa/(1|units.g/units.cm**2))
                 mdotg[i] = mass_p[i]/tau_KH
-
             omega = np.sqrt(constants.G*Mstar/ap[i]**3)
-
             mdotbondi = Sigmag[int(ip[i])]/Hdisk[int(ip[i])]*omega*(Rhills(mass_p[i],Mstar,ap[i])/3)**3
-
             nudisk = alpha*Hdisk[int(ip[i])]**2*omega
             Mdotdisk = flub*3*np.pi*nudisk*Sigmag[int(ip[i])]
             mdotg[i] = min(mdotbondi,mdotg[i],Mdotdisk)
 
-            #Truncation at the gas isolation mass
-            Meiso=(4.*np.pi*2.*ap[i]**2*Sigmag[int(ip[i])])**1.5/(3*Mstar)**0.5
-            if me[i]>Meiso:
-                mdotg[i] = 0 | units.g/units.s
+            #Truncation at the gas isolation mass ---------------1
+            # Meiso=(4.*np.pi*2.*ap[i]**2*Sigmag[int(ip[i])])**1.5/(3*Mstar)**0.5
+            # if me[i]>Meiso:
+            #     mdotg[i] = 0 | units.g/units.s
+
+            # ------------------------------2
+            # if 1.5*Hdisk[int[i]]>Rhills(mass_p[i],Mstar,ap[i]):
+            #     mdotg[i]=0
+
+            # ------------------------------3
+            f_va04 = 1.668* (mass_p[i]/(1.5|units.MJupiter))**(1/3)*np.exp(-mass_p[i]/(1.5|units.MJupiter))+0.04
+            mdot_eva04 = f_va04*Mdotdisk/flub
+            mdotg[i] = min(mdotg[i],mdot_eva04)
+            
+
+            
 
         return mdotg
 

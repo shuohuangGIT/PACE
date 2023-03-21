@@ -18,54 +18,54 @@ def setup_single_pps (timestep, verbose=False):
     # Initialize codes
     core_gas_accretion = CoreGasAccretion()
     disk_gas_evolution = DiskGasEvolution()
-    # typeI_migration = TypeIMigration()
+    typeI_migration = TypeIMigration()
 
     # Add codes
     system.add_code(core_gas_accretion)
     system.add_code(disk_gas_evolution)
-    # system.add_code(typeI_migration)
+    system.add_code(typeI_migration)
 
     # Set coupling timestep; matrix is symmetric, so no need to set [1,0]
     system.timestep_matrix[0,1] = timestep
-    # system.timestep_matrix[0,2] = timestep/2
-    # system.timestep_matrix[1,2] = timestep
+    system.timestep_matrix[0,2] = timestep/3
+    system.timestep_matrix[1,2] = timestep
 
-    # system.add_channel(0,2, from_attributes = ['core_mass'], 
-    #             to_attributes = ['core_mass'],
-    #             from_set_name = 'planets', to_set_name = 'planets')
+    system.add_channel(0,2, from_attributes = ['core_mass'], 
+                to_attributes = ['core_mass'],
+                from_set_name = 'planets', to_set_name = 'planets')
                 
-    # system.add_channel(0,2, from_attributes = ['envelope_mass'], 
-    #             to_attributes = ['envelope_mass'],
-    #             from_set_name = 'planets', to_set_name = 'planets')
-    # system.add_channel(0,2, from_attributes = ['surface_solid'], 
-    #             to_attributes = ['surface_solid'], 
-    #             from_set_name = 'disk', to_set_name = 'disk')
+    system.add_channel(0,2, from_attributes = ['envelope_mass'], 
+                to_attributes = ['envelope_mass'],
+                from_set_name = 'planets', to_set_name = 'planets')
+    system.add_channel(0,2, from_attributes = ['surface_solid'], 
+                to_attributes = ['surface_solid'], 
+                from_set_name = 'disk', to_set_name = 'disk')
 
     system.add_channel(1,0, from_attributes = ['surface_gas'], 
                 to_attributes = ['surface_gas'], 
                 from_set_name = 'disk', to_set_name = 'disk')
-    # system.add_channel(1,2, from_attributes = ['surface_gas'], 
-    #             to_attributes = ['surface_gas'], 
-    #             from_set_name = 'disk', to_set_name = 'disk')
+    system.add_channel(1,2, from_attributes = ['surface_gas'], 
+                to_attributes = ['surface_gas'], 
+                from_set_name = 'disk', to_set_name = 'disk')
 
-    # system.add_channel(2,0, from_attributes=['semimajor_axis'], 
-    #             to_attributes=['semimajor_axis'],
-    #             from_set_name='planets', to_set_name='planets')
+    system.add_channel(2,0, from_attributes=['semimajor_axis'], 
+                to_attributes=['semimajor_axis'],
+                from_set_name='planets', to_set_name='planets')
 
-    return system, core_gas_accretion, disk_gas_evolution#, typeI_migration
+    return system, core_gas_accretion, disk_gas_evolution, typeI_migration
 
 
 def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
-    system,_,_ = setup_single_pps(dt)
+    system,_,_,_ = setup_single_pps(dt)
     system.codes[0].planets.add_particles(planets)
     system.codes[0].disk = disk
     system.codes[0].star.mass = star_mass
 
     system.codes[1].disk = disk
 
-    # system.codes[2].planets.add_particles(planets)
-    # system.codes[2].disk = disk
-    # system.codes[2].star.mass = star_mass
+    system.codes[2].planets.add_particles(planets)
+    system.codes[2].disk = disk
+    system.codes[2].star.mass = star_mass
 
     N_plot_steps = int(end_time/dt_plot)
     print(N_plot_steps)
@@ -170,8 +170,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [1e-5, 1e-3, 1e-3] | units.MEarth
-    a = [2.7, 20, 30] | units.AU
+    M = [1e-5, 1e-4] | units.MEarth
+    a = [2.7, 7.5] | units.AU
 
     planets = Particles(len(M),
         core_mass=M,
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
     dt = 1 | units.kyr # timestep of the matrix
-    end_time = 2000. | units.kyr
+    end_time = 10000. | units.kyr
     dt_plot = end_time/400
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
 
@@ -189,7 +189,7 @@ if __name__ == '__main__':
     fg = 5
     pg0 = -1
     Rdisk_in = 0.03 | units.AU
-    Rdisk_out = 100 | units.AU
+    Rdisk_out = 30 | units.AU
     fDG, FeH, pT, star_mass = 0.0149, 0, -0.5, 1|units.MSun
     mu = 2.4
 
