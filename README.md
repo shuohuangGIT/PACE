@@ -1,4 +1,4 @@
-# venice-population-syntheis
+# PAC (Planetary system Architecture evolution Code)
 ## 1. Code description:
 Population synthsis code based on Venice
 
