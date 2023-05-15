@@ -106,7 +106,7 @@ def cal_temperature(rs, M_star, R_star, T_star, alpha, sigma, Z):
     rs = np.array(rs)
     T = np.zeros(len(rs))
     for i, r in enumerate(rs):
-        result = fun_tem(M_star, R_star, T_star, r, alpha, 0.1, sigma, Z)
+        result = fun_tem(M_star, R_star, T_star, r, alpha, 0.1, sigma[i], Z[i])
         T[i] = result
     return T
 
@@ -143,7 +143,7 @@ def cal_gamma_eff_izid(gamma, chi, rs, M_star, M_planet, h):
         
     return gamma_eff
 
-def cal_tau_I(r, M_planet, M_star, R_star, Teff, gamma, alpha, sigma_g, sigma_d, r_grid):
+def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid):
     ip = 0
     for i in range(len(r_grid)):
         if (r_grid[i]<r) and (r_grid[i+1]>r):
@@ -152,15 +152,23 @@ def cal_tau_I(r, M_planet, M_star, R_star, Teff, gamma, alpha, sigma_g, sigma_d,
     sigma_g_p = (sigma_g[ip]*(r_grid[ip+1]-r)+sigma_g[ip+1]*(r-r_grid[ip]))/(r_grid[ip+1]-r_grid[ip])
     sigma_d_p = (sigma_d[ip]*(r_grid[ip+1]-r)+sigma_d[ip+1]*(r-r_grid[ip]))/(r_grid[ip+1]-r_grid[ip])
 
-    Z = sigma_d_p/sigma_g_p
+    T = (temp[ip]*(r_grid[ip+1]-r)+temp[ip+1]*(r-r_grid[ip]))/(r_grid[ip+1]-r_grid[ip])
+    T0 = temp[ip]
+    T1 = temp[ip+1]
 
-    T = cal_temperature(r,M_star,R_star,Teff,alpha, sigma_g_p, Z)
+    if sigma_g_p==0:
+        Z=0.01
+    else:
+        Z = sigma_d_p/sigma_g_p
 
-    # surface density and temperature slope:
-    T0 = cal_temperature(np.array([r_grid[ip]]),M_star,R_star,Teff,alpha, sigma_g[ip], Z)
-    T1 = cal_temperature(np.array([r_grid[ip+1]]),M_star,R_star,Teff,alpha, sigma_g[ip+1], Z)
-    beta_slope  = -(np.log(T1)-np.log(T0))/(np.log(r_grid[ip+1])-np.log(r_grid[ip]))
-    alpha_slope = -(np.log(sigma_g[ip+1])-np.log(sigma_g[ip]))/(np.log(r_grid[ip+1])-np.log(r_grid[ip]))
+    # surface density and temperature slope:    
+    beta_slope  = -(np.log(T1/T0))/(np.log(r_grid[ip+1]/r_grid[ip]))
+    if beta_slope == None:
+        beta_slope=0
+
+    alpha_slope = -(np.log(sigma_g[ip+1]/sigma_g[ip]))/(np.log(r_grid[ip+1]/r_grid[ip]))
+    if alpha_slope == None:
+        alpha_slope=0
     
     omega=cal_omega(ps.mSun,r)
     H = cal_soundspeed(T)/omega
@@ -179,7 +187,7 @@ def cal_tau_I(r, M_planet, M_star, R_star, Teff, gamma, alpha, sigma_g, sigma_d,
     
     torque = torque_tot(beta_slope,alpha_slope,gamma_eff,p_vis,p_therm)
 
-    mig_rate = (torque*(M_planet/M_star/h)**2*sigma_g_p*(rpj)**2*omega/M_planet*ps.yr  *2)
+    mig_rate = (torque*(M_planet/M_star/h)**2*sigma_g_p*(r)**2*omega/M_planet*ps.yr  *2)
     return torque, mig_rate
 
 
@@ -208,12 +216,16 @@ if __name__ == '__main__':
     X,Y = np.meshgrid(rp/ps.au,mp/ps.mEarth)
     Z=[]
     Mig_rate = []
+    
+    dtgr = sigma_d/sigma_g
+    temp = cal_temperature(r_grid,M_star,R_star,Teff,alpha, sigma_g, dtgr)
+
     from tqdm import *
     for i, M_planet in enumerate(tqdm(mp)):
         Zi = []
         Mig_ratei = []
         for j, rpj in enumerate(rp):
-            Zj, Mig_ratej = cal_tau_I(np.array([rpj]), M_planet, M_star, R_star, Teff, gamma, alpha, sigma_g, sigma_d, r_grid)
+            Zj, Mig_ratej = cal_tau_I(np.array([rpj]), M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid)
 
             Zi.append(Zj[0])
             Mig_ratei.append(Mig_ratej[0])
