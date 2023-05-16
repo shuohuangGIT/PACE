@@ -44,9 +44,13 @@ def torque_cent2(beta,alpha,gamma,p_vis):
     torque_c_ent = torque_hs_ent(beta,alpha,gamma)*np.sqrt(Fp(p_vis)*Fp(p_therm))*np.sqrt(Gp(p_vis)*Gp(p_therm))+np.sqrt((1-Kp(p_vis))*(1-Kp(p_therm)))*torque_c_lin_ent(beta,alpha,gamma)
     return torque_c_ent
 
-def torque_tot(beta,alpha,gamma,p_vis,p_therm):
+def torque_tot(beta,alpha,gamma,p_vis,p_therm,K):
     torque_c = torque_cbaro(beta,alpha,gamma,p_vis)+torque_cent(beta,alpha,gamma,p_vis,p_therm)
-    return torque_L(beta,alpha,gamma)+torque_c
+    return (torque_L(beta,alpha,gamma)+torque_c*np.exp(-K/20))/(1+0.04*K)
+
+# def torque_tot(beta,alpha,gamma,p_vis,p_therm, K):
+#     torque_c = torque_cbaro(beta,alpha,gamma,p_vis)+torque_cent(beta,alpha,gamma,p_vis,p_therm)
+#     return torque_L(beta,alpha,gamma)+torque_c
 
 def cal_surf_density(r_cm,r_in=0.091, beta_g=0.9, r_0=5.2, sigma_g0=100, R_disk=30):
     r = r_cm /ps.au
@@ -143,7 +147,7 @@ def cal_gamma_eff_izid(gamma, chi, rs, M_star, M_planet, h):
         
     return gamma_eff
 
-def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid):
+def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha):
     ip = 0
     for i in range(len(r_grid)):
         if (r_grid[i]<r) and (r_grid[i+1]>r):
@@ -185,7 +189,9 @@ def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid):
     p_vis = cal_pvis(r,omega,xs,nu)
     p_therm = cal_ptherm(chi, r, M_star, M_planet, h, gamma_eff)
     
-    torque = torque_tot(beta_slope,alpha_slope,gamma_eff,p_vis,p_therm)
+    K = (M_planet/M_star)**2*(h)**-5*alpha
+ 
+    torque = torque_tot(beta_slope,alpha_slope,gamma_eff,p_vis,p_therm, K)
 
     mig_rate = (torque*(M_planet/M_star/h)**2*sigma_g_p*(r)**2*omega/M_planet*ps.yr  *2)
     return torque, mig_rate
@@ -208,7 +214,7 @@ if __name__ == '__main__':
 
     r_grid  = 10**np.linspace(np.log10(r_in),2,200)*ps.au
     sigma_g = cal_surf_density(r_grid,r_in, beta_g, r_0, sigma_g0, R_disk)
-    sigma_d = 0.0196* sigma_g # simple
+    sigma_d = 0.01* sigma_g # simple
 
     rp  = (r_grid[:-1]+r_grid[1:])/2
     mp = 10**np.linspace(-1,2,200)*ps.mEarth
@@ -225,7 +231,7 @@ if __name__ == '__main__':
         Zi = []
         Mig_ratei = []
         for j, rpj in enumerate(rp):
-            Zj, Mig_ratej = cal_tau_I(np.array([rpj]), M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid)
+            Zj, Mig_ratej = cal_tau_I(np.array([rpj]), M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha)
 
             Zi.append(Zj[0])
             Mig_ratei.append(Mig_ratej[0])
