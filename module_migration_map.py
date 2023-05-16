@@ -206,7 +206,7 @@ if __name__ == '__main__':
     disk.scale_height = scale_height(sound_speed(disk.temperature, mu), star_mass, disk.position)
 
 
-    from test import access_migration_map
+    from test_migration_map import access_migration_map
     rp = (disk.position[:-1]+disk.position[1:])/2
 
     mp = 10**np.linspace(-1,2,200) | units.MEarth
@@ -260,4 +260,4 @@ if __name__ == '__main__':
 
     system = run_single_pps(ax, disk, planets, star_mass, dt, end_time, dt_plot)
 
-    plt.show()
+    plt.savefig("migration_map.png",dpi=500)

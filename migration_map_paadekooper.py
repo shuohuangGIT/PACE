@@ -23,14 +23,23 @@ def torque_c_lin_ent(beta,alpha,gamma):
     return ((2.2-1.4/gamma)*xi)/gamma
 
 def Fp(p):
-    return 8*sci.special.iv(4/3,p)/(3*p*sci.special.iv(1/3,p)+9/2*p**2*sci.special.iv(4/3,p))
-#     return 1/(1+(p/1.3)**2)
+    Fp = 1/(1+(p/1.3)**2)
+    return Fp
+    # return 8*sci.special.iv(4/3,p)/(3*p*sci.special.iv(1/3,p)+9/2*p**2*sci.special.iv(4/3,p))
 
 def Gp(p):
-    return 16/25*(45*np.pi/8)**(3/4)*p**(3/2)*(p<np.sqrt(8/45/np.pi))+(1-9/25*(8/45/np.pi)**(4/3)*p**(-8/3))*(p>=np.sqrt(8/45/np.pi))
+    if (p<np.sqrt(8/45/np.pi)):
+        Gp = 16/25*(45*np.pi/8)**(3/4)*p**(3/2)
+    else:
+        Gp = (1-9/25*(8/45/np.pi)**(4/3)*p**(-8/3))
+    return Gp
 
 def Kp(p):
-    return 16/25*(45*np.pi/28)**(3/4)*p**(3/2)*(p<np.sqrt(28/45/np.pi))+(1-9/25*(28/45/np.pi)**(4/3)*p**(-8/3))*(p>=np.sqrt(28/45/np.pi))
+    if (p<np.sqrt(28/45/np.pi)):
+        Kp = 16/25*(45*np.pi/28)**(3/4)*p**(3/2)
+    else:
+        Kp = (1-9/25*(28/45/np.pi)**(4/3)*p**(-8/3))
+    return Kp
 
 def torque_cbaro(beta,alpha,gamma,p_vis):
     return torque_hs_baro(alpha,gamma)*Fp(p_vis)*Gp(p_vis)+(1-Kp(p_vis))*torque_c_lin_baro(alpha,gamma)
@@ -46,11 +55,8 @@ def torque_cent2(beta,alpha,gamma,p_vis):
 
 def torque_tot(beta,alpha,gamma,p_vis,p_therm,K):
     torque_c = torque_cbaro(beta,alpha,gamma,p_vis)+torque_cent(beta,alpha,gamma,p_vis,p_therm)
-    return (torque_L(beta,alpha,gamma)+torque_c*np.exp(-K/20))/(1+0.04*K)
-
-# def torque_tot(beta,alpha,gamma,p_vis,p_therm, K):
-#     torque_c = torque_cbaro(beta,alpha,gamma,p_vis)+torque_cent(beta,alpha,gamma,p_vis,p_therm)
-#     return torque_L(beta,alpha,gamma)+torque_c
+    torque_tot = (torque_L(beta,alpha,gamma)+torque_c*np.exp(-K/20))/(1+0.04*K)
+    return torque_tot
 
 def cal_surf_density(r_cm,r_in=0.091, beta_g=0.9, r_0=5.2, sigma_g0=100, R_disk=30):
     r = r_cm /ps.au
@@ -104,7 +110,6 @@ def fun_tem(M_star, R_star, T_star, r, alpha, T_prec, sigma, Z):
 
     return T
 
-from scipy.optimize import fsolve
 def cal_temperature(rs, M_star, R_star, T_star, alpha, sigma, Z):
     # rs in unit cm
     rs = np.array(rs)
@@ -116,7 +121,11 @@ def cal_temperature(rs, M_star, R_star, T_star, alpha, sigma, Z):
 
 def cal_chi(gamma, temperature, kappa, sigma, omega):
     # gamma: gas
-    return 4*gamma*(gamma-1)*ps.sigma_SB*temperature**4*2*np.pi/3/kappa/sigma**2/omega**2 #paardecooper != izidoro
+    chi = 4*gamma*(gamma-1)*ps.sigma_SB*temperature**4*2*np.pi/3/kappa/sigma**2/omega**2
+    # if np.isinf(chi):
+        # print(gamma, temperature, kappa, sigma, omega)
+        # xxx
+    return  chi #paardecooper != izidoro
 
 def cal_xs(gamma_eff, M_star, M_planet,h):
     return 1.1/gamma_eff**(1/4)*np.sqrt(M_planet/M_star/h)
@@ -129,22 +138,41 @@ def cal_ptherm(chi, r, M_star, M_planet, h, gamma_eff):
     xs = cal_xs(gamma_eff, M_star, M_planet,h)
     return np.sqrt(r**2*omega/2/np.pi/chi*xs**3)
 
-def fun_gamma_eff_izid(gamma_eff, *args):
+# def fun_gamma_eff_izid(gamma_eff, *args):
+#     gamma, chi, r, M_star, _, h = args
+#     omega = cal_omega(M_star, r)
+#     Q = 2*chi/3/h**3/omega/r**2
+#     return 2*Q*gamma/(gamma*Q+0.5*np.sqrt(2*np.sqrt((gamma**2*Q**2+1)**2-16*Q**2*(gamma-1))+2*gamma**2*Q**2-2))-gamma_eff
+
+def fun_gamma_eff_izid(*args):
     gamma, chi, r, M_star, _, h = args
     omega = cal_omega(M_star, r)
     Q = 2*chi/3/h**3/omega/r**2
-    return 2*Q*gamma/(gamma*Q+0.5*np.sqrt(2*np.sqrt((gamma**2*Q**2+1)**2-16*Q**2*(gamma-1))+2*gamma**2*Q**2-2))-gamma_eff
+    gamma_eff = 2*Q*gamma/(gamma*Q+0.5*np.sqrt(2*np.sqrt((gamma**2*Q**2+1)**2-16*Q**2*(gamma-1))+2*gamma**2*Q**2-2))
+    # warning comes from too large or too small Chi
+    if (gamma_eff==0):
+        gamma_eff = 1
+    if np.isinf(gamma_eff):
+        gamma_eff = 5/3
+        
+    # if (gamma_eff>5/3) or (gamma_eff<1-1e-10):
+    #     print(gamma_eff)
+    #     xxx
+    return gamma_eff
+
 
 def cal_gamma_eff_izid(gamma, chi, rs, M_star, M_planet, h):
     # rs in unit cm
     rs = np.array(rs)
     chi=np.array(chi)
     h=np.array(h)
-    gamma_eff = np.zeros(len(rs))
+    gamma_eff = np.ones(len(rs))
     for i, r in enumerate(rs):
-        result = fsolve(fun_gamma_eff_izid, 2, args=(gamma, chi[i], r, M_star, M_planet, h[i]), xtol=1e-4)
-        gamma_eff[i] = result[0]
-        
+        # result = fsolve(fun_gamma_eff_izid, 2, args=(gamma, chi[i], r, M_star, M_planet, h[i]), xtol=1e-4)
+        # gamma_eff[i] = result[0]
+        result = fun_gamma_eff_izid(gamma, chi[i], r, M_star, M_planet, h[i])
+        gamma_eff[i] = result
+    
     return gamma_eff
 
 def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha):
@@ -168,11 +196,11 @@ def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha)
     # surface density and temperature slope:    
     beta_slope  = -(np.log(T1/T0))/(np.log(r_grid[ip+1]/r_grid[ip]))
     if beta_slope == None:
-        beta_slope=0
+        beta_slope=1e-4
 
     alpha_slope = -(np.log(sigma_g[ip+1]/sigma_g[ip]))/(np.log(r_grid[ip+1]/r_grid[ip]))
     if alpha_slope == None:
-        alpha_slope=0
+        alpha_slope=1e-4
     
     omega=cal_omega(ps.mSun,r)
     H = cal_soundspeed(T)/omega
@@ -225,7 +253,6 @@ if __name__ == '__main__':
     
     dtgr = sigma_d/sigma_g
     temp = cal_temperature(r_grid,M_star,R_star,Teff,alpha, sigma_g, dtgr)
-
     from tqdm import *
     for i, M_planet in enumerate(tqdm(mp)):
         Zi = []
