@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import *
+
 from amuse.units import units
 from amuse.datamodel import Particles, new_regular_grid
 from venice_src.venice import Venice
@@ -7,7 +9,7 @@ from venice_src.venice import Venice
 from extra_funcs import *
 from module_coreaccretion import *
 from module_gasevolution import *
-from module_migration import *
+from module_migration_map import *
 
 def setup_single_pps (timestep, verbose=False):
 
@@ -55,7 +57,7 @@ def setup_single_pps (timestep, verbose=False):
     return system, core_gas_accretion, disk_gas_evolution, typeI_migration
 
 
-def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
+def run_single_pps (disk, planets, star_mass, star_radius, star_teff, dt, end_time, dt_plot):
     system,_,_,_ = setup_single_pps(dt)
     system.codes[0].planets.add_particles(planets)
     system.codes[0].disk = disk
@@ -66,6 +68,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
     system.codes[2].planets.add_particles(planets)
     system.codes[2].disk = disk
     system.codes[2].star.mass = star_mass
+    system.codes[2].star.radius = star_radius
+    system.codes[2].star_teff = star_teff
 
     N_plot_steps = int(end_time/dt_plot)
     print(N_plot_steps)
@@ -80,7 +84,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
     gas = []
     solid = []
     disk_time = []
-    for i in range(N_plot_steps+1):
+
+    for i in tqdm(range(N_plot_steps+1)):
 
         system.evolve_model( (i) * dt_plot )
 
@@ -173,6 +178,9 @@ if __name__ == '__main__':
     M = [1e-5, 1e-4] | units.MEarth
     a = [2.7, 7.5] | units.AU
 
+    M_star=1|units.MSun
+    R_star=1|units.RSun
+    T_star=5770|units.K
     planets = Particles(len(M),
         core_mass=M,
         envelope_mass = 0|units.g,
@@ -180,7 +188,7 @@ if __name__ == '__main__':
     )
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
-    dt = 1 | units.kyr # timestep of the matrix
+    dt = 10 | units.kyr # timestep of the matrix
     end_time = 10000. | units.kyr
     dt_plot = end_time/400
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
@@ -190,18 +198,18 @@ if __name__ == '__main__':
     pg0 = -1
     Rdisk_in = 0.03 | units.AU
     Rdisk_out = 30 | units.AU
-    fDG, FeH, pT, star_mass = 0.0149, 0, -0.5, 1|units.MSun
+    fDG, FeH, pT = 0.0149, 0, -0.5
     mu = 2.4
 
     disk.position = Rdisk0(Rdisk_in, Rdisk_out, pre_ndisk)
     disk.surface_gas = sigma_g0(sigmag_0, fg, pg0, disk.position, Rdisk_in, Rdisk_out)
     
-    T = temperature (disk.position, pT, star_mass)
+    T = temperature (disk.position, pT, M_star)
     disk.surface_solid = sigma_d0(disk.surface_gas, fDG, FeH, T)
-    disk.scale_height = scale_height(sound_speed(T, mu), star_mass, disk.position)
+    disk.scale_height = scale_height(sound_speed(T, mu), M_star, disk.position)
 
     # plt.plot(disk.position.value_in(units.au), disk.surface_solid.value_in(units.g/units.cm**2))
     # plt.xscale('log')
     # plt.yscale('log')
-    system = run_single_pps(disk, planets, star_mass, dt, end_time, dt_plot)
+    system = run_single_pps(disk, planets, M_star, R_star, T_star, dt, end_time, dt_plot)
     plt.show()

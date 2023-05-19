@@ -14,6 +14,7 @@ class TypeIMigration:
         self.planets = Particles()
         self.planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
         self.star = Particle(mass=1|units.MSun)
+        self.star_teff = 5775 | units.K
         self.model_time = 0. | units.Myr
 
         self.disk = new_regular_grid(([int(pre_ndisk)]),[1])
@@ -27,7 +28,7 @@ class TypeIMigration:
 
         self.dt = pre_dt
 
-        self.eta = 0.01
+        self.eta = 0.1
         self.C2 = 2e-3
 
     def cal_Rm(self, time):
@@ -52,9 +53,10 @@ class TypeIMigration:
     def evolve_model (self, end_time):
         model_time_i = self.model_time
         Rdisk = self.disk.position
-        # Sigmag = self.disk.surface_gas
-        # Hdisk = self.disk.scale_height
-
+        dtgr = self.disk.surface_solid/self.disk.surface_gas
+        temp_d = np.array(cal_temperature(self.disk.position.value_in(units.cm),self.star.mass.value_in(units.g),self.star.radius.value_in(units.cm),
+                                          self.star_teff.value_in(units.K), self.alpha, self.disk.surface_gas.value_in(units.g/units.cm**2), dtgr)) |units.K
+        self.disk.temperature = temp_d.reshape((pre_ndisk,1))
         while model_time_i < end_time:
             tau_a = np.zeros(len(self.planets)) | units.kyr
             for i in range(len(self.planets)):
@@ -108,13 +110,14 @@ def setup_single_pps (timestep, verbose=False):
     return system, typeI_migration # core_accretion, typeI_migration
 
 
-def run_single_pps (ax1, disk, planets, star_mass, dt, end_time, dt_plot):
+def run_single_pps (ax1, disk, planets, star_mass, star_radius, dt, end_time, dt_plot):
 
     system, _ = setup_single_pps(dt)
 
     system.codes[0].planets.add_particles(planets)
     system.codes[0].disk = disk
     system.codes[0].star.mass = star_mass
+    system.codes[0].star.radius = star_radius
     system.codes[0].C1 = 1
     system.codes[0].C2 = 1
 
@@ -123,12 +126,8 @@ def run_single_pps (ax1, disk, planets, star_mass, dt, end_time, dt_plot):
     a = np.zeros((N_plot_steps, len(planets))) | units.au
     M = np.zeros((N_plot_steps, len(planets))) | units.MEarth
 
-    
-
     for i in range(N_plot_steps):
-
         system.codes[0].evolve_model( (i) * dt_plot )
-
         print ("Time(/Myr)", system.codes[0].model_time.value_in(units.Myr), "End Time(/Myr)", end_time.value_in(units.Myr), 
                "Planet sma/au", system.codes[0].planets.semimajor_axis.value_in(units.AU))
 
@@ -186,25 +185,20 @@ if __name__ == '__main__':
     pg0 = -1
     Rdisk_in = 0.03 | units.AU
     Rdisk_out = 30 | units.AU
-    fDG, FeH, pT, star_mass = 0.0149*0.1, 0, -0.5, 1|units.MSun
+    fDG, FeH, pT = 0.0149*0.1, 0, -0.5
     mu = 2.4
     alpha = 2e-3
     gamma = 7/5
 
     disk.position = Rdisk0(Rdisk_in, 10|units.au, pre_ndisk)
     disk.surface_gas = sigma_g0(sigmag_0, fg, pg0, disk.position, Rdisk_in, Rdisk_out)
-    # T = temperature (disk.position, pT, star_mass)    
     disk.surface_solid = disk.surface_gas*0.0196
 
     dtgr = disk.surface_solid/disk.surface_gas
     temp_d = np.array(cal_temperature(disk.position.value_in(units.cm),M_star.value_in(units.g),R_star.value_in(units.cm),Teff.value_in(units.K),alpha, disk.surface_gas.value_in(units.g/units.cm**2), dtgr)) |units.K
     disk.temperature = temp_d.reshape((pre_ndisk,1))
-    # print(disk.temperature.shape)
-    # disk.surface_solid = sigma_d0(disk.surface_gas, fDG, FeH, temp_d)
-    # disk.temperature = 100* np.ones(pre_ndisk) | units.K #temp_d
 
-    disk.scale_height = scale_height(sound_speed(disk.temperature, mu), star_mass, disk.position)
-
+    disk.scale_height = scale_height(sound_speed(disk.temperature, mu), M_star, disk.position)
 
     from test_migration_map import access_migration_map
     rp = (disk.position[:-1]+disk.position[1:])/2
@@ -258,6 +252,6 @@ if __name__ == '__main__':
     ticks = np.array([-1e-5,-1e-6,-1e-7,-1e-8,1e-8,1e-7,1e-6,1e-5])
     cbar = plt.colorbar(pcm, cax=cax, ticks=ticks,label=r'$\dot{a}/a$')
 
-    system = run_single_pps(ax, disk, planets, star_mass, dt, end_time, dt_plot)
+    system = run_single_pps(ax, disk, planets, M_star, R_star, dt, end_time, dt_plot)
 
     plt.savefig("migration_map.png",dpi=500)

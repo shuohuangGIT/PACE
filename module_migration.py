@@ -119,6 +119,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
     system.codes[0].planets.add_particles(planets)
     system.codes[0].disk = disk
     system.codes[0].star.mass = star_mass
+    system.codes[0].C1 = 1
+    system.codes[0].C2 = 1
 
     N_plot_steps = int(end_time/dt_plot)
     t = np.zeros((N_plot_steps, len(planets))) | units.Myr
@@ -161,7 +163,7 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [1e-3] | units.MEarth
+    M = [1e0] | units.MEarth
     a = [20.] | units.AU
 
     planets = Particles(len(M),
@@ -171,8 +173,8 @@ if __name__ == '__main__':
     )
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
-    dt = 100 | units.kyr
-    end_time = 4000. | units.kyr
+    dt = 4 | units.kyr
+    end_time = 200 | units.kyr
     dt_plot = end_time/100
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
 

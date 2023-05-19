@@ -60,21 +60,14 @@ class CoreGasAccretion:
             Rmin=ap-fliss*RH
             Rmax=ap+fliss*RH
 
-            Rmin=max(Rmin, Rdisk[1])
-            Rmax=min(Rmax, Rdisk[-2])
-            
             Mfeedi = 0. | units.g
 
-            for j in range(len(Rdisk)-1):
-                if (Rdisk[j]<=Rmin) & (Rdisk[j+1]>Rmin):
-                    imini=j
-
-                if (Rdisk[j]<Rmax) & (Rdisk[j+1]>=Rmax):
-                    imaxi=j
-                
-                if (Rdisk[j]<=ap) & (Rdisk[j+1]>ap):
-                    ipi=j
-
+            imini, imaxi, ipi = -1, -1, -1
+            # print(Rmin, Rmax, ap, np.nonzero(Rdisk>=Rmin)[0])
+            imini = np.nonzero(Rdisk>=Rmin)[0][0]
+            imaxi = np.nonzero(Rdisk>=Rmax)[0][0]
+            ipi   = np.nonzero(Rdisk>=ap)[0][0]
+            
             # improved from mo
             if imaxi == imini:
                     imaxi = imini+1
@@ -305,7 +298,7 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [1e-3] | units.MEarth
+    M = [1e1] | units.MEarth
     a = [20.] | units.AU
 
     planets = Particles(len(M),

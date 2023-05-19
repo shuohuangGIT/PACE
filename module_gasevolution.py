@@ -15,13 +15,13 @@ class DiskGasEvolution:
         # self.star = Particle(mass=1|units.MSun)
         self.model_time = 0. | units.Myr
         self.disk = new_regular_grid(([int(pre_ndisk)]),[1]|units.au)
-        self.disk.surface_gas = 0 | units.g/units.cm**2
-        self.disk_lifetime = 1 | units.Myr
+        self.disk.surface_gas = 1e-20 | units.g/units.cm**2
+        self.disk_lifetime = 1.2 | units.Myr
         self.sigma_dot_wind = -1e-7 | units.MSun/units.yr/(100*units.au)**2
         self.sigmag_min = 1e-20|units.g/units.cm**2
 
-    def calculate_dt(self, model_time_i, end_time):
-        return min(1 | units.kyr, end_time-model_time_i)
+    def calculate_dt(self, model_time_i, end_time): #???
+        return min(100 | units.kyr, end_time-model_time_i)
     
     def calculate_sigma_dot(self):
         return -self.disk.surface_gas/self.disk_lifetime+self.sigma_dot_wind
@@ -73,7 +73,7 @@ def run_single_pps (disk, dt, end_time, dt_plot):
 
         system.codes[0].evolve_model( (i+1) * dt_plot )
 
-        print (system.codes[0].model_time.value_in(units.Myr), end_time.value_in(units.Myr))
+        print ("Time(/Myr)", system.codes[0].model_time.value_in(units.Myr), "End Time(/Myr)", end_time.value_in(units.Myr))
         
         color = (1-(i+1)/N_plot_steps,0,(i+1)/N_plot_steps)
         ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_gas.value_in(units.g/units.cm**2),color = color, label = '%.1f Myr'%system.codes[0].model_time.value_in(units.Myr))
@@ -83,16 +83,16 @@ def run_single_pps (disk, dt, end_time, dt_plot):
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_xlim(1e-2,1e3)
+    ax.set_xlim(1e-2,1e2)
     plt.legend(loc='upper right')
 
     return system
 
 
 if __name__ == '__main__':
-    dt = 10. | units.kyr
+    dt = 1000. | units.kyr
     end_time = 10000. | units.kyr
-    dt_plot = 1000. | units.kyr
+    dt_plot = end_time/10
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
 
     sigmag_0 = 2400 | units.g/units.cm**2
