@@ -71,7 +71,9 @@ def cal_kappa_gas1(rho,T,Z):
     smoothi=(np.tanh((T-inner)/smooth)+1)/2
     smootho=(np.tanh((T-outer)/smooth)+1)/2
     kappa = 2e-4*T**2*(1-smoothi)+0.1*T**0.5*smootho #+2e16/T**7*(1-smootho)*smoothi
-    return kappa*Z/0.0196
+    # kappa_0=kappa/0.0196*np.maximum(Z,1e-6)
+    kappa_0=kappa
+    return kappa_0
 
 def cal_soundspeed(T):
     mu = 2.24 # gas mean molecular weight
@@ -106,6 +108,10 @@ def fun_tem(M_star, R_star, T_star, r, alpha, T_prec, sigma, Z):
         T_s4   = T_star**4*(2/3/np.pi*(R_star/r)**3+0.5*(R_star/r)**2* H/r*(9/7-1))+T_cd**4
         
         T = ((0.5*(3/8*tau_R+1/2/tau_P)*E_dot+ps.sigma_SB*T_s4)/ps.sigma_SB)**(1/4)
+        if np.isinf(T):
+            print(tau_R, tau_P, E_dot)
+        elif np.isnan(T):
+            print(tau_R, tau_P, E_dot)
         dT = abs(T_old-T)
 
     return T
@@ -121,10 +127,10 @@ def cal_temperature(rs, M_star, R_star, T_star, alpha, sigma, Z):
 
 def cal_chi(gamma, temperature, kappa, sigma, omega):
     # gamma: gas
-    chi = 4*gamma*(gamma-1)*ps.sigma_SB*temperature**4*2*np.pi/3/kappa/sigma**2/omega**2
-    # if np.isinf(chi):
-        # print(gamma, temperature, kappa, sigma, omega)
-        # xxx
+    if sigma<1e-100:
+        chi = [np.inf]
+    else:
+        chi = 4*gamma*(gamma-1)*ps.sigma_SB*temperature**4*2*np.pi/3/kappa/sigma**2/omega**2
     return  chi #paardecooper != izidoro
 
 def cal_xs(gamma_eff, M_star, M_planet,h):
@@ -138,26 +144,18 @@ def cal_ptherm(chi, r, M_star, M_planet, h, gamma_eff):
     xs = cal_xs(gamma_eff, M_star, M_planet,h)
     return np.sqrt(r**2*omega/2/np.pi/chi*xs**3)
 
-# def fun_gamma_eff_izid(gamma_eff, *args):
-#     gamma, chi, r, M_star, _, h = args
-#     omega = cal_omega(M_star, r)
-#     Q = 2*chi/3/h**3/omega/r**2
-#     return 2*Q*gamma/(gamma*Q+0.5*np.sqrt(2*np.sqrt((gamma**2*Q**2+1)**2-16*Q**2*(gamma-1))+2*gamma**2*Q**2-2))-gamma_eff
-
 def fun_gamma_eff_izid(*args):
     gamma, chi, r, M_star, _, h = args
     omega = cal_omega(M_star, r)
     Q = 2*chi/3/h**3/omega/r**2
-    gamma_eff = 2*Q*gamma/(gamma*Q+0.5*np.sqrt(2*np.sqrt((gamma**2*Q**2+1)**2-16*Q**2*(gamma-1))+2*gamma**2*Q**2-2))
     # warning comes from too large or too small Chi
-    if (gamma_eff==0):
+    if (chi>1e100):
         gamma_eff = 1
-    if np.isinf(gamma_eff):
+        # print(gamma_eff, chi)
+    elif (chi==0):
         gamma_eff = 5/3
-        
-    # if (gamma_eff>5/3) or (gamma_eff<1-1e-10):
-    #     print(gamma_eff)
-    #     xxx
+    else:
+        gamma_eff = 2*Q*gamma/(gamma*Q+0.5*np.sqrt(2*np.sqrt((gamma**2*Q**2+1)**2-16*Q**2*(gamma-1))+2*gamma**2*Q**2-2))
     return gamma_eff
 
 
