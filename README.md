@@ -1,4 +1,5 @@
-# PAC (Planetary system Architecture evolution Code+Adaptive)
+# PAC (Planetary system Architecture evolution Code) 
+# PACE (Planet population synthesis and their Architecture evolution in star Cluster Environments)
 ## 1. Code description:
 Population synthsis code based on Venice
 
