@@ -61,17 +61,10 @@ class TypeIMigration:
             tau_a = np.zeros(len(self.planets)) | units.kyr
             for i in range(len(self.planets)):
                 ap = self.planets[i].semimajor_axis
-                
-                ipi = 0
-                for j in range(len(Rdisk)-1):                
-                    if (Rdisk[j]<=ap) & (Rdisk[j+1]>ap):
-                        ipi=j
-
-                # H_p = (Hdisk[ipi]-Hdisk[ipi+1])*(Rdisk[ipi]-ap)/(Rdisk[ipi]-Rdisk[ipi+1])+Hdisk[ipi]
-
                 #Type I & Type II
-                if ap<Rdisk[0]:
+                if (ap<=Rdisk[0]) or (ap>=Rdisk[-1]):
                     tau_a[i] = np.inf | units.kyr
+                    print("WARNING: Planet(s) is out of the grids")
                 else:
                     _, rate = self.access_migration_map(ap, self.planets[i].dynamical_mass)
                     tau_a[i] = -rate**-1

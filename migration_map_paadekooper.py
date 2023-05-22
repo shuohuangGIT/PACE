@@ -174,11 +174,8 @@ def cal_gamma_eff_izid(gamma, chi, rs, M_star, M_planet, h):
     return gamma_eff
 
 def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha):
-    ip = 0
-    for i in range(len(r_grid)):
-        if (r_grid[i]<r) and (r_grid[i+1]>r):
-            ip=i
-            break
+    ip   = np.nonzero(r_grid<=r)[0][-1]
+    
     sigma_g_p = (sigma_g[ip]*(r_grid[ip+1]-r)+sigma_g[ip+1]*(r-r_grid[ip]))/(r_grid[ip+1]-r_grid[ip])
     sigma_d_p = (sigma_d[ip]*(r_grid[ip+1]-r)+sigma_d[ip+1]*(r-r_grid[ip]))/(r_grid[ip+1]-r_grid[ip])
 

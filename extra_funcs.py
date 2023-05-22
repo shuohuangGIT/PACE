@@ -4,14 +4,14 @@ from amuse.datamodel import Particles
 import matplotlib.pyplot as plt
 
 pre_dt = 0.1 | units.kyr # timescale for integration
-pre_ndisk = 5000
+pre_ndisk = 500
 
 def Rhills(Mp,Mstar,ap):
     return ap*(Mp/3/Mstar)**(1/3)
 
 def Rdisk0(Rdisk_in, Rdisk_out, ndisk):
     # return np.linspace(4,9,ndisk) | units.au
-    return 10**np.linspace(np.log10(Rdisk_in/(1|units.au)), 2*np.log10(Rdisk_out/(1|units.au)), ndisk) | units.au
+    return 10**np.linspace(np.log10(Rdisk_in/(1|units.au)), np.log10(Rdisk_out/(1|units.au)), ndisk) | units.au
 
 def temperature (Rdisk, pT, star_mass):
     # r in unit au; M in unit solar mass
@@ -25,10 +25,12 @@ def scale_height(cs, Mstar, ap):
     return cs/omega
 
 # initial gas surface density
-def sigma_g0(sigmag_0, fg, pg0, Rdisk, Rdisk_in, Rdisk_out):
+def sigma_g0(fg, pg0, Rdisk, Rdisk_in, Rdisk_out):
     # typos from Mordasini??
-    sigmag = sigmag_0 * fg* (Rdisk/(1|units.au))**pg0 * np.exp(-(Rdisk/Rdisk_out)**(2-pg0))* (1-(np.sqrt(Rdisk_in/Rdisk)-1)*(np.sqrt(Rdisk_in/Rdisk)<1)-1) * (np.array((Rdisk/Rdisk_out)**(2-pg0))<10)
-    return sigmag
+    sigmag_0 = 2400 | units.g/units.cm**2
+    sigmag = sigmag_0 * fg* (Rdisk/(1|units.au))**pg0 * np.exp(-(Rdisk/Rdisk_out)**(2-pg0))*(1-np.minimum(np.sqrt(Rdisk_in/Rdisk),1)) #* (np.array((Rdisk/Rdisk_out)**(2-pg0))<10)
+    sigmag0 = np.maximum(sigmag.value_in(units.g/units.cm**2), 1e-300)|units.g/units.cm**2
+    return sigmag0
 
 # initial dust surface density
 def sigma_d0(sigma_g, fDG, FeH, temperature):

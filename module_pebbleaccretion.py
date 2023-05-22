@@ -62,26 +62,11 @@ class CoreGasAccretion:
 
             Mfeedi = 0. | units.g
 
-            if (Rmin<Rdisk[-1]) and (Rmin>Rdisk[0]):
-                imini = np.nonzero(Rdisk<=Rmin)[0][-1]
-            elif (Rmin<=Rdisk[0]):
-                imini = 0
-            else:
-                imini = -2
-
-            if (Rmax<Rdisk[-1]) and (Rmax>Rdisk[0]):
-                imaxi = np.nonzero(Rdisk<=Rmax)[0][-1]
-            elif (Rmax<=Rdisk[0]):
-                imaxi = 0
-            else:
-                imaxi = -2
-
-            if (ap<Rdisk[-1]) and (ap>Rdisk[0]):
-                ipi   = np.nonzero(Rdisk<=ap)[0][-1]
-            elif (ap<=Rdisk[0]):
-                ipi = 0
-            else:
-                ipi = -2
+            imini, imaxi, ipi = -1, -1, -1
+            # print(Rmin, Rmax, ap, np.nonzero(Rdisk>=Rmin)[0])
+            imini = np.nonzero(Rdisk>=Rmin)[0][0]
+            imaxi = np.nonzero(Rdisk>=Rmax)[0][0]
+            ipi   = np.nonzero(Rdisk>=ap)[0][0]
             
             # improved from mo
             if imaxi == imini:
