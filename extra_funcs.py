@@ -1,7 +1,6 @@
 import numpy as np
 from amuse.units import units, constants
 from amuse.datamodel import Particles
-import matplotlib.pyplot as plt
 
 pre_dt = 0.1 | units.kyr # timescale for integration
 pre_ndisk = 500

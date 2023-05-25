@@ -1,4 +1,4 @@
-from venice_pps_run_plts_multi import run_single_pps
+from venice_pps_setup_plts import run_single_pps
 from extra_funcs import dynamical_mass
 from amuse.units import units
 from amuse.datamodel import Particles
@@ -62,7 +62,7 @@ for i in range(N):
     mu = 2.4 # mean molecular weight
 
     dt = 10 | units.kyr # timestep of the matrix (fixed)
-    end_time = lifetime * 2*fg
+    end_time = lifetime * 4*fg
     # end_time = 0 |units.s
     dt_plot_planet = end_time/400 # timestep to save the planet data
     N_plot_disk = 40
