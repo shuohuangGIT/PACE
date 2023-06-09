@@ -74,13 +74,13 @@ def run_single_pps (fg, pg0, fDG, FeH, mu, alpha, Rdisk_in, Rdisk_out, lifetime,
     system.codes[0].star.mass = star_mass
 
     system.codes[1].disk = disk
-
+    system.codes[1].disk_lifetime = lifetime
+    
     system.codes[2].planets.add_particles(planets)
     system.codes[2].disk = disk
     system.codes[2].star.mass = star_mass
     system.codes[2].star.radius = star_radius
     system.codes[2].star_teff = star_teff
-    system.codes[2].disk_lifetime = lifetime
 
     N_plot_steps = int(end_time/dt_plot)
     t = np.zeros((N_plot_steps+1, len(planets))) | units.Myr
