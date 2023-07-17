@@ -1,0 +1,161 @@
+# use vader (Krumholz+2015) and pedisk (Birnstiel+2012, Wilhelm+2023) to evolve gas disk
+import numpy as np
+import matplotlib.pyplot as plt
+
+from amuse.units import units, constants
+from amuse.datamodel import Particles, Particle, new_regular_grid
+
+from venice_src.venice import Venice
+from amuse.community.vader.interface import Vader
+
+from extra_funcs import *
+
+class DiskGasDustEvolution:
+    def __init__(self):
+        self.code = Vader(mode='pedisk_dusty', redirection='none')
+        self.code.module_time = 0|units.Myr
+        self.model_time = 0 | units.Myr
+
+        self.disk = new_regular_grid(([int(pre_ndisk)]),[1]|units.au)
+        self.disk.surface_gas = 1e-20 | units.g/units.cm**2
+        self.disk.surface_solid = 1e-20 | units.g/units.cm**2
+
+        # need to initialize the grid when calling the function externally!
+        # self.code.initialize_keplerian_grid(
+        #     300,                # grid cells
+        #     False,              # True for linear, False for logarithmic
+        #     0.01 | units.au,    # inner disk edge
+        #     500. | units.au,   # outer disk edge
+        #     1. | units.MSun     # central mass
+        # )
+
+    def evolve_model(self, end_time):
+        self.code.evolve_model(end_time)
+        self.disk.surface_gas = self.code.grid.column_density
+        self.disk.surface_solid = self.code.grid_user[0].value | units.g/units.cm**2
+
+        self.model_time = self.code.model_time
+
+# example of calling the function---------------------------------------------
+
+def setup_single_pps (timestep, verbose=False):
+
+    # Initiate Venice
+    system = Venice()
+    system.verbose = verbose
+
+    # Initialize codes
+    disk_gas_dust_evolution = DiskGasDustEvolution()
+
+    # Add codes
+    system.add_code(disk_gas_dust_evolution)
+
+    # Set coupling timestep; matrix is symmetric, so no need to set [1,0]
+    system.timestep_matrix = timestep
+    return system, disk_gas_dust_evolution # core_accretion, typeI_migration
+
+
+def run_single_pps (R_in, R_out, star_mass, alpha, M_dot_ph_in, M_dot_ph_ex, fDG, dt, end_time, dt_plot):
+
+    system, _ = setup_single_pps(dt)
+
+    system.codes[0].code.initialize_keplerian_grid(
+        pre_ndisk,                # grid cells
+        False,              # True for linear, False for logarithmic
+        R_in,    # inner disk edge
+        R_out,   # outer disk edge
+        star_mass     # central mass
+    )
+    
+    viscous = system.codes[0].code
+    viscous.parameters.alpha = alpha
+    # some fixted parameters
+    viscous.parameters.inner_boundary_function = True    
+    viscous.parameters.inner_pressure_boundary_type = 1     # fixed mass flux
+    viscous.parameters.maximum_tolerated_change = 1e99
+    viscous.parameters.post_timestep_function = True
+    viscous.parameters.number_of_user_outputs = 3
+    viscous.parameters.number_of_user_parameters = 14
+    # some free (user defined) parameters
+    viscous.set_parameter(0, ( M_dot_ph_in ).value_in(units.g/units.s))
+    viscous.set_parameter(1, ( M_dot_ph_ex ).value_in(units.g/units.s))
+    # minimum gas surface density to photoevaporate to, in g/cm^2
+    viscous.set_parameter(2, 1e-12)
+    viscous.set_parameter(3, 1e9)
+    viscous.set_parameter(4, (2.3*1.008*constants.u).value_in(units.g))
+    viscous.set_parameter(5, viscous.parameters.alpha)
+    viscous.set_parameter(6, star_mass.value_in(units.MSun))
+    viscous.set_parameter(7, 1e3) # dust fragmentation velocity
+    viscous.set_parameter(8, 1.) # dust internal density
+    viscous.set_parameter(9, 1e-3)
+    viscous.set_parameter(10, 1e99)
+
+    disk_mass   = 0.1 * star_mass
+    disk_radius = Rdisk_out
+    temp = (270. | units.K) * viscous.grid.r.value_in(units.au)**-0.5
+
+    sigma0 = disk_mass / (2.*np.pi * disk_radius**2. * (1. - np.exp(-1.)))
+    sigma = sigma0 * disk_radius/viscous.grid.r * np.exp(-viscous.grid.r/disk_radius)
+    sigma[ viscous.grid.r > disk_radius ] = 1e-12 | units.g/units.cm**2 # sharp edge
+
+    pressure = constants.kB*temp*sigma / (2.3*1.008*constants.u)
+    viscous.grid.column_density = sigma
+    viscous.grid.pressure = pressure
+
+    # dust density
+    viscous.grid_user[0].value = fDG * sigma.value_in(units.g/units.cm**2)
+    # dust initial grain size
+    viscous.grid_user[1].value = 1e-3
+    # temperature profile
+    viscous.grid_user[2].value = temp.value_in(units.K)
+
+    disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
+    disk.position = system.codes[0].code.grid.r
+    disk.surface_gas = sigma
+    disk.surface_solid = fDG * disk.surface_gas
+    system.codes[0].disk = disk
+
+    N_plot_steps = int(end_time/dt_plot)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    for i in range(N_plot_steps):
+
+        system.codes[0].evolve_model( (i+1) * dt_plot )
+
+        print ("Time(/Myr)", system.codes[0].model_time.value_in(units.Myr), "End Time(/Myr)", end_time.value_in(units.Myr))
+        
+        color = (1-(i+1)/N_plot_steps,0,(i+1)/N_plot_steps)
+        ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_gas.value_in(units.g/units.cm**2),color = color, label = '%.1f Myr'%system.codes[0].model_time.value_in(units.Myr))
+        ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_solid.value_in(units.g/units.cm**2),color = color, linestyle='--')
+
+
+    ax.set_xlabel('$a [au]$')
+    ax.set_ylabel(r'$\Sigma_g$[$g/cm^{2}$]')
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlim(1e-2,1e2)
+    plt.legend(loc='upper right')
+
+    return system
+
+
+if __name__ == '__main__':
+    end_time = 1. | units.Myr
+    dt_plot = end_time/10
+    dt = dt_plot
+
+    star_mass = 1|units.MSun
+    Rdisk_in = 0.1 | units.AU
+    Rdisk_out = 500 | units.AU
+
+    fDG = 0.0134
+    alpha = 1e-3
+    M_dot_ph_in = 0|units.MSun/units.yr
+    M_dot_ph_ex = 0|units.MSun/units.yr
+    
+    system = run_single_pps(Rdisk_in, Rdisk_out, star_mass, alpha, M_dot_ph_in, M_dot_ph_ex, fDG, dt, end_time, dt_plot)
+
+    plt.show()
