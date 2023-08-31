@@ -23,8 +23,6 @@ class TypeIMigration:
 
         self.dt = pre_dt
         self.TypeI = False
-        # self.xi = 3/7
-        # self.beta = 15/14
         self.eta = 0.1
 
     def set_time_step(self, tau_I, model_time_i, end_time):
@@ -116,8 +114,6 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
     system.codes[0].planets.add_particles(planets)
     system.codes[0].disk = disk
     system.codes[0].star.mass = star_mass
-    system.codes[0].C1 = 1
-    system.codes[0].C2 = 1
 
     N_plot_steps = int(end_time/dt_plot)
     t = np.zeros((N_plot_steps, len(planets))) | units.Myr
@@ -182,6 +178,7 @@ if __name__ == '__main__':
     Rdisk_out = 30 | units.AU
     fDG, FeH, xi, star_mass = 0.01, 0, 3/7, 1|units.MSun
     mu = 2.4
+    alpha = 1e-4
 
     disk.position = Rdisk0(1e-3|units.au, 1e2|units.au, pre_ndisk)
     disk.surface_gas = fg*sigmag_0 * (disk.position.value_in(units.au))**(-beta)
@@ -189,6 +186,7 @@ if __name__ == '__main__':
     T = temperature (disk.position, xi, star_mass)
     disk.surface_solid = disk.surface_gas *fDG
     disk.scale_height = scale_height(sound_speed(T, mu), star_mass, disk.position)
+    disk.alpha = 1e-4
 
     system = run_single_pps(disk, planets, star_mass, dt, end_time, dt_plot)
 

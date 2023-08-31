@@ -1,6 +1,7 @@
 import numpy as np
 from amuse.units import units, constants
 from amuse.datamodel import Particles
+import matplotlib.pyplot as plt
 
 pre_dt = 0.1 | units.kyr # timescale for integration
 pre_ndisk = 500
@@ -14,14 +15,10 @@ def Rdisk0(Rdisk_in, Rdisk_out, ndisk):
 
 def temperature (Rdisk, pT, star_mass):
     # r in unit au; M in unit solar mass
-    return (280 | units.K) * (Rdisk/(1|units.au))**pT *(star_mass/(1|units.MSun))
+    return (117 | units.K) * (Rdisk/(1|units.au))**pT *(star_mass/(1|units.MSun))
 
 def sound_speed(temperature, mu):
-    return np.sqrt(constants.kB*temperature/mu/constants.atomic_mass_unit_hyphen_kilogram_relationship)
-
-def scale_height(cs, Mstar, ap):
-    omega = np.sqrt(constants.G*Mstar/ap**3)
-    return cs/omega
+    return np.sqrt(constants.kB*temperature/mu/constants.u)
 
 # initial gas surface density
 def sigma_g0(fg, pg0, Rdisk, Rdisk_in, Rdisk_out):
@@ -34,7 +31,7 @@ def sigma_g0(fg, pg0, Rdisk, Rdisk_in, Rdisk_out):
 # initial dust surface density
 def sigma_d0(sigma_g, fDG, FeH, temperature):
     judge = (temperature<(170|units.K))
-    eta_ice = judge*0.75 + 0.25
+    eta_ice = 1 # judge*0.75 + 0.25
     return  fDG * 10**FeH * eta_ice* sigma_g
 
 def dynamical_mass(core_mass, envelope_mass):
