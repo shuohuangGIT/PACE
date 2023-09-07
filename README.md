@@ -8,4 +8,4 @@ Run python3 venice_pps_run.py to run the default pps model. Parameters are basic
 The files named module*.py are building different physical processes. For example, module_migration.py builds migration process. (is the name module good?)
 The file extra_funcs.py defines some extra functions used in the files. parames.py defile some constants used in OL18.py.
 
-However, venice.py, symmetric_matrix.py are src files of Venice. OL18.py is the source file to calculate pebble accretion \citep{Ormel & Liu 2018}.
+However, venice.py, symmetric_matrix.py are src files of Venice (Wilhlem et al. in prep). OL18.py is the source file to calculate pebble accretion \citep{Ormel & Liu 2018}.
