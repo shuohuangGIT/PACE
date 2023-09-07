@@ -55,6 +55,7 @@ def torque_cent2(beta,alpha,gamma,p_vis):
 
 def torque_tot(beta,alpha,gamma,p_vis,p_therm,K):
     torque_c = torque_cbaro(beta,alpha,gamma,p_vis)+torque_cent(beta,alpha,gamma,p_vis,p_therm)
+    # torque_tot = (torque_L(beta,alpha,gamma)+torque_c*np.exp(-0/20))/(1+0.04*K)
     torque_tot = (torque_L(beta,alpha,gamma)+torque_c*np.exp(-K/20))/(1+0.04*K)
     return torque_tot
 
@@ -70,9 +71,9 @@ def cal_kappa_gas1(rho,T,Z):
     smooth=50
     smoothi=(np.tanh((T-inner)/smooth)+1)/2
     smootho=(np.tanh((T-outer)/smooth)+1)/2
-    kappa = 2e-4*T**2*(1-smoothi)+0.1*T**0.5*smootho #+2e16/T**7*(1-smootho)*smoothi
-    # kappa_0=kappa/0.0196*np.maximum(Z,1e-6)
-    kappa_0=kappa
+    kappa = 2e-4*T**2*(1-smoothi)+0.1*T**0.5*smootho #+2e16/T**7*(1-smootho)*smoothi # WARNING: this is an approximation
+    kappa_0=kappa/0.0196*np.maximum(Z,1e-6)
+    # kappa_0=kappa # comment it out to swtich on Type II
     return kappa_0
 
 def cal_soundspeed(T):
@@ -184,7 +185,7 @@ def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha)
     T1 = temp[ip+1]
 
     if sigma_g_p==0:
-        Z=0.01
+        Z=1e-8 # lower limit of the dust to gas ratio
     else:
         Z = sigma_d_p/sigma_g_p
 
@@ -212,7 +213,7 @@ def cal_tau_I(r, M_planet, M_star, gamma, sigma_g, sigma_d, temp, r_grid, alpha)
     p_vis = cal_pvis(r,omega,xs,nu)
     p_therm = cal_ptherm(chi, r, M_star, M_planet, h, gamma_eff)
     
-    K = (M_planet/M_star)**2*(h)**-5*alpha
+    K = (M_planet/M_star)**2*(h)**-5*alpha**-1
  
     torque = torque_tot(beta_slope,alpha_slope,gamma_eff,p_vis,p_therm, K)
 
@@ -240,7 +241,7 @@ if __name__ == '__main__':
     sigma_d = 0.01* sigma_g # simple
 
     rp  = (r_grid[:-1]+r_grid[1:])/2
-    mp = 10**np.linspace(-1,2,200)*ps.mEarth
+    mp = 10**np.linspace(-1,3,200)*ps.mEarth
 
     X,Y = np.meshgrid(rp/ps.au,mp/ps.mEarth)
     Z=[]

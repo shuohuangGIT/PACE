@@ -39,51 +39,50 @@ class TypeIMigration:
         Rdisk = self.disk.position
         Sigmag = self.disk.surface_gas
         Hdisk = self.disk.scale_height
-        if (min(self.planets.semimajor_axis)>Rdisk[0]) and (max(self.planets.semimajor_axis)<Rdisk[-1]):
-            while model_time_i < end_time:
-                tau_a = np.zeros(len(self.planets)) | units.kyr
-                for i in range(len(self.planets)):
-                    ap = self.planets[i].semimajor_axis
-                    
-                    if (ap<=Rdisk[0]) or (ap>=Rdisk[-1]):
-                        tau_a[i] = np.inf | units.kyr
-                        print("WARNING: Planet(s) is out of the grids")
+
+        while model_time_i < end_time:
+            tau_a = np.zeros(len(self.planets)) | units.kyr
+            for i in range(len(self.planets)):
+                ap = self.planets[i].semimajor_axis
+                
+                if (ap<=Rdisk[0]) or (ap>=Rdisk[-1]):
+                    tau_a[i] = np.inf | units.kyr
+                    print("WARNING: Planet(s) is out of the grids")
+                else:
+                    ipi = np.nonzero(Rdisk<=ap)[0][-1]
+                    alpha = self.disk.alpha[ipi]
+
+                    # calculate slope
+                    xi = -np.log(Hdisk[int(ipi)+1]/Hdisk[int(ipi)])/np.log(Rdisk[int(ipi)+1]/Rdisk[int(ipi)])*2+3
+                    beta = - np.log(Sigmag[int(ipi)+1]/Sigmag[int(ipi)])/np.log(Rdisk[int(ipi)+1]/Rdisk[int(ipi)])
+
+                    sigmag_p = (Sigmag[ipi]-Sigmag[ipi+1])*(Rdisk[ipi]-ap)/(Rdisk[ipi]-Rdisk[ipi+1])+Sigmag[ipi]
+                    # sigmag_p = Sigmag[ipi]
+
+                    q_pl = self.planets[i].dynamical_mass / self.star.mass
+                    q_g = self.star.mass/ap**2/sigmag_p
+
+                    # H_p = Hdisk[ipi]
+                    H_p = (Hdisk[ipi]-Hdisk[ipi+1])*(Rdisk[ipi]-ap)/(Rdisk[ipi]-Rdisk[ipi+1])+Hdisk[ipi]
+                    h_p = H_p/ap
+                    # print(H_p.value_in(units.au), Rhills(self.planets[i].dynamical_mass,self.star.mass,ap).value_in(units.au))
+                    if self.TypeI==True:
+                        K=0
                     else:
-                        ipi = np.nonzero(Rdisk<=ap)[0][-1]
-                        alpha = self.disk.alpha[ipi]
+                        K = (q_pl)**2*(h_p)**-5/alpha
+                    tau_a[i] = 1/(1.36+0.62*beta+0.43*xi)*(h_p)**2/q_pl*q_g*np.sqrt(ap**3/constants.G/self.star.mass)/2*(1+0.04*K)
 
-                        # calculate slope
-                        xi = -np.log(Hdisk[int(ipi)+1]/Hdisk[int(ipi)])/np.log(Rdisk[int(ipi)+1]/Rdisk[int(ipi)])*2+3
-                        beta = - np.log(Sigmag[int(ipi)+1]/Sigmag[int(ipi)])/np.log(Rdisk[int(ipi)+1]/Rdisk[int(ipi)])
+            dt = self.set_time_step(min(tau_a), model_time_i, end_time)
+            model_time_i += dt
 
-                        sigmag_p = (Sigmag[ipi]-Sigmag[ipi+1])*(Rdisk[ipi]-ap)/(Rdisk[ipi]-Rdisk[ipi+1])+Sigmag[ipi]
-                        # sigmag_p = Sigmag[ipi]
+            for i in range(len(self.planets)):
+                ap = self.planets[i].semimajor_axis
+                a_dot = -ap/tau_a[i]
+                self.planets[i].semimajor_axis += a_dot * dt
 
-                        q_pl = self.planets[i].dynamical_mass / self.star.mass
-                        q_g = self.star.mass/ap**2/sigmag_p
+            if dt == 0|units.s:
+                break
 
-                        # H_p = Hdisk[ipi]
-                        H_p = (Hdisk[ipi]-Hdisk[ipi+1])*(Rdisk[ipi]-ap)/(Rdisk[ipi]-Rdisk[ipi+1])+Hdisk[ipi]
-                        h_p = H_p/ap
-                        # print(H_p.value_in(units.au), Rhills(self.planets[i].dynamical_mass,self.star.mass,ap).value_in(units.au))
-                        if self.TypeI==True:
-                            K=0
-                        else:
-                            K = (q_pl)**2*(h_p)**-5/alpha
-                        tau_a[i] = 1/(1.36+0.62*beta+0.43*xi)*(h_p)**2/q_pl*q_g*np.sqrt(ap**3/constants.G/self.star.mass)/2*(1+0.04*K)
-
-                dt = self.set_time_step(min(tau_a), model_time_i, end_time)
-                model_time_i += dt
-
-                for i in range(len(self.planets)):
-                    ap = self.planets[i].semimajor_axis
-                    a_dot = -ap/tau_a[i]
-                    self.planets[i].semimajor_axis += a_dot * dt
-
-                if dt == 0|units.s:
-                    break
-        else:
-            pass
         self.model_time = end_time
 
 
@@ -156,8 +155,8 @@ def run_single_pps (disk, planets, star_mass, dt, end_time, dt_plot):
 
 if __name__ == '__main__':
 
-    M = [1e0] | units.MEarth
-    a = [25.] | units.AU
+    M = [1, 2, 4, 10, 1000] | units.MEarth
+    a = [10., 10., 10, 10, 10] | units.AU
 
     planets = Particles(len(M),
         core_mass=M,
@@ -167,26 +166,31 @@ if __name__ == '__main__':
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
     dt = 4 | units.kyr
-    end_time = 2000 | units.kyr
+    end_time = 10000 | units.kyr
     dt_plot = end_time/1000
-    disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
-
-    sigmag_0 = 2400 | units.g/units.cm**2
-    fg = 5
-    beta = 15/14
-    Rdisk_in = 0.03 | units.AU
-    Rdisk_out = 30 | units.AU
+    
+    Rdisk_in = 0.01 | units.au
+    Rdisk_out = 500 | units.au
     fDG, FeH, xi, star_mass = 0.01, 0, 3/7, 1|units.MSun
     mu = 2.4
     alpha = 1e-4
 
-    disk.position = Rdisk0(1e-3|units.au, 1e2|units.au, pre_ndisk)
-    disk.surface_gas = fg*sigmag_0 * (disk.position.value_in(units.au))**(-beta)
+    disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
+    disk.position = Rdisk0(Rdisk_in, Rdisk_out, pre_ndisk)
 
-    T = temperature (disk.position, xi, star_mass)
+    disk_mass   = 0.1 * star_mass
+    disk_radius = Rdisk_out
+
+    sigma0 = disk_mass / (2.*np.pi * disk_radius**2. * (1. - np.exp(-1.)))
+    sigma = sigma0 * disk_radius/disk.position * np.exp(-disk.position/disk_radius)
+    sigma[ disk.position > disk_radius*2/3 ] = 1e-12 | units.g/units.cm**2 # sharp edge
+
+    T = (150. | units.K) * disk.position.value_in(units.au)**-(3/7) # fix temperature profile Liu et al. 2019
+
+    disk.surface_gas = sigma
     disk.surface_solid = disk.surface_gas *fDG
-    disk.scale_height = scale_height(sound_speed(T, mu), star_mass, disk.position)
-    disk.alpha = 1e-4
+    disk.scale_height = sound_speed(T, mu)/np.sqrt(constants.G*star_mass/disk.position**3)
+    disk.alpha = alpha
 
     system = run_single_pps(disk, planets, star_mass, dt, end_time, dt_plot)
 

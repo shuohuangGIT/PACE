@@ -15,12 +15,17 @@ class DiskGasDustEvolution:
         self.code = Vader(mode='pedisk_dusty', redirection='none')
         self.code.module_time = 0|units.Myr
         self.model_time = 0 | units.Myr
+        self.star = Particle(mass=1|units.MSun)
+        self.star_teff = 5775 | units.K
+        self.mu = 2.3
+
 
         self.disk = new_regular_grid(([int(pre_ndisk)]),[1]|units.au)
         self.disk.surface_gas = 1e-20 | units.g/units.cm**2
         self.disk.surface_solid = 1e-20 | units.g/units.cm**2
         self.disk.vd = 0. | units.cm/units.s
         self.disk.st = 1e-3
+        self.disk.alpha = 1e-3
         
         # need to initialize the grid when calling the function externally!
         # self.code.initialize_keplerian_grid(
@@ -39,7 +44,17 @@ class DiskGasDustEvolution:
         self.disk.st = self.code.grid_user[4].value
         self.model_time = self.code.model_time
 
-        print(self.code.grid_user[2].value)
+        # Update temperature analytically, Initially from migration module. # warning: below costs more computational time. 
+        # from migration_map_paadekooper import cal_temperature
+        # dtgr = self.disk.surface_solid/self.disk.surface_gas
+        # temp_d = np.array(cal_temperature(self.disk.position.value_in(units.cm),self.star.mass.value_in(units.g),self.star.radius.value_in(units.cm),
+        #                                   self.star_teff.value_in(units.K), self.disk.alpha[0], self.disk.surface_gas.value_in(units.g/units.cm**2), dtgr)) |units.K
+        # self.disk.temperature = temp_d
+        # pressure = constants.kB*self.disk.temperature*self.disk.surface_gas / (self.mu*1.008*constants.u)
+
+        # self.code.grid.pressure = pressure
+        # self.code.grid_user[2].value = temp_d.value_in(units.K)
+
 
 # example of calling the function---------------------------------------------
 
@@ -83,7 +98,7 @@ def init_viscous(viscous, alpha, alpha_acc, mu, M_dot_ph_in, M_dot_ph_ex, star_m
     viscous.set_parameter(10, 1e99)
     return viscous
 
-def run_single_pps (R_in, R_out, star_mass, alpha, alpha_acc, M_dot_ph_in, M_dot_ph_ex, fDG, dt, end_time, dt_plot):
+def run_single_pps (R_in, R_out, star_mass, star_radius, Teff, alpha, alpha_acc, M_dot_ph_in, M_dot_ph_ex, fDG, dt, end_time, dt_plot):
     system, _ = setup_single_pps(dt)
     viscous = system.codes[0].code
 
@@ -102,13 +117,37 @@ def run_single_pps (R_in, R_out, star_mass, alpha, alpha_acc, M_dot_ph_in, M_dot
 
     disk_mass   = 0.1 * star_mass
     disk_radius = R_out
-    temp = (150. | units.K) * viscous.grid.r.value_in(units.au)**-(3/7)
 
     sigma0 = disk_mass / (2.*np.pi * disk_radius**2. * (1. - np.exp(-1.)))
     sigma = sigma0 * disk_radius/viscous.grid.r * np.exp(-viscous.grid.r/disk_radius)
     sigma[ viscous.grid.r > disk_radius*2/3 ] = 1e-12 | units.g/units.cm**2 # sharp edge
+
+    disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
+    disk.position = system.codes[0].code.grid.r
+    disk.alpha = alpha
+
+    disk.surface_gas = sigma
+    disk.surface_solid = fDG * sigma
+
+    system.codes[0].u = mu
+    system.codes[0].disk = disk
+    system.codes[0].star_teff = Teff
+    system.codes[0].star.mass = star_mass
+    system.codes[0].star.radius = star_radius
+
+    temp = (150. | units.K) * viscous.grid.r.value_in(units.au)**-(3/7) # fix temperature profile Liu et al. 2019
+
+    # calculate mid-plain temperature via disk opacity
+    # from migration_map_paadekooper import cal_temperature #warning: it cost more computational time.
+    # dtgr = disk.surface_solid/disk.surface_gas
+    # temp_d = np.array(cal_temperature(disk.position.value_in(units.cm),star_mass.value_in(units.g),star_radius.value_in(units.cm),
+    #                                     Teff.value_in(units.K), disk.alpha[0], disk.surface_gas.value_in(units.g/units.cm**2), dtgr)) |units.K
+    # temp = temp_d
     
-    pressure = constants.kB*temp*sigma / (mu*1.008*constants.u)
+    disk.temperature = temp
+
+    print(disk.temperature.shape, disk.surface_gas.shape)
+    pressure = constants.kB*disk.temperature*disk.surface_gas / (mu*1.008*constants.u)
     
     viscous.grid.column_density = sigma
     viscous.grid.pressure = pressure
@@ -120,13 +159,7 @@ def run_single_pps (R_in, R_out, star_mass, alpha, alpha_acc, M_dot_ph_in, M_dot
     # temperature profile
     viscous.grid_user[2].value = temp.value_in(units.K)
 
-    disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
-    disk.position = system.codes[0].code.grid.r
-
-    disk.surface_gas = sigma
-    disk.surface_solid = fDG * sigma
-    system.codes[0].disk = disk
-
+    #start simulate
     N_plot_steps = int(end_time/dt_plot)
 
     fig = plt.figure()
@@ -143,11 +176,11 @@ def run_single_pps (R_in, R_out, star_mass, alpha, alpha_acc, M_dot_ph_in, M_dot
         
         if i==N_plot_steps-1: # comment it out if plot more snapshots
             color = (1-(i+1)/N_plot_steps,0,(i+1)/N_plot_steps)
-            # ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_gas.value_in(units.g/units.cm**2),color = color, label = '%.1f Myr'%system.codes[0].model_time.value_in(units.Myr))
-            # ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_solid.value_in(units.g/units.cm**2),color = color, linestyle='--')
+            ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_gas.value_in(units.g/units.cm**2),color = color, label = '%.1f Myr'%system.codes[0].model_time.value_in(units.Myr))
+            ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.surface_solid.value_in(units.g/units.cm**2),color = color, linestyle='--')
 
-            ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.vd.value_in(units.cm/units.s),color = color, label = '%.1f Myr'%system.codes[0].model_time.value_in(units.Myr))
-            ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.st,color = color, linestyle='--')
+            # ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.vd.value_in(units.cm/units.s),color = color, label = '%.1f Myr'%system.codes[0].model_time.value_in(units.Myr))
+            # ax.plot(system.codes[0].disk.position.value_in(units.AU), system.codes[0].disk.st,color = color, linestyle='--')
 
 
     ax.set_xlabel('$a [au]$')
@@ -167,6 +200,9 @@ if __name__ == '__main__':
     dt = dt_plot
 
     star_mass = 1. | units.MSun
+    star_radius = 1. | units.RSun
+    Teff = 5770 | units.K
+
     Rdisk_in = 0.01 | units.AU
     Rdisk_out = 300. | units.AU
 
@@ -176,6 +212,6 @@ if __name__ == '__main__':
     M_dot_ph_in = 0|units.MSun/units.yr
     M_dot_ph_ex = 0|units.MSun/units.yr
     
-    system = run_single_pps(Rdisk_in, Rdisk_out, star_mass, alpha, alpha_acc, M_dot_ph_in, M_dot_ph_ex, fDG, dt, end_time, dt_plot)
+    system = run_single_pps(Rdisk_in, Rdisk_out, star_mass, star_radius, Teff, alpha, alpha_acc, M_dot_ph_in, M_dot_ph_ex, fDG, dt, end_time, dt_plot)
 
     plt.show()
