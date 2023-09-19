@@ -353,7 +353,7 @@ if __name__ == '__main__':
     fDG, FeH, xi, star_mass = 0.006, 0, 3/7, 1|units.MSun
     mu = 2.3
     stokes_number = 0.01
-    alpha_acc = 1e-4
+    alpha_acc = 1e-2
     alpha = 1e-4
 
     disk.position = Rdisk0(Rdisk_in, Rdisk_out, pre_ndisk)

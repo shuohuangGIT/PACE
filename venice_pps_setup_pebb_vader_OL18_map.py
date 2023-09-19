@@ -69,7 +69,8 @@ def setup_single_pps (timestep, verbose=False):
     return system, pebble_gas_accretion, disk_gas_evolution, migration
 
 
-def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T, Rdisk_in, Rdisk_out, stokes_number, planets, star_mass, M_dot_ph_in, M_dot_ph_ex, t_birth, dt, end_time, dt_plot, N_snapshot):
+def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T, Rdisk_in, Rdisk_out, stokes_number, planets, star_mass, 
+                    M_dot_ph_ex, t_birth, dt, times, N_snapshot, filename):
     # initialize venice
     system,_,_,_ = setup_single_pps(dt)
 
@@ -83,7 +84,7 @@ def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T
         star_mass     # central mass
     )
 
-    viscous = init_viscous(viscous, alpha, alpha_acc, mu, M_dot_ph_in, M_dot_ph_ex, star_mass, v_frag)
+    viscous = init_viscous(viscous, alpha, alpha_acc, mu, M_dot_ph_ex[0], star_mass, v_frag)
 
     disk_mass   = 0.1 * star_mass
     disk_radius = Rdisk_out
@@ -123,6 +124,8 @@ def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T
 
     system.codes[1].disk = disk
 
+    system.codes[1].star.mass = star_mass
+    
     # initialize pebble accretion (code 0)
     system.codes[0].planets.add_particles(planets)
     system.codes[0].disk = disk
@@ -135,36 +138,44 @@ def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T
 
     # ================
 
-    N_plot_steps = int(end_time/dt_plot)
-    t = np.zeros((N_plot_steps+1, len(planets))) | units.Myr
-    a = np.zeros((N_plot_steps+1, len(planets))) | units.au
-    Mc = np.zeros((N_plot_steps+1, len(planets))) | units.MEarth
-    Me = np.zeros((N_plot_steps+1, len(planets))) | units.MEarth
+    N_plot_steps = len(times)
+    t = np.zeros((N_plot_steps, len(planets))) | units.Myr
+    a = np.zeros((N_plot_steps, len(planets))) | units.au
+    Mc = np.zeros((N_plot_steps, len(planets))) | units.MEarth
+    Me = np.zeros((N_plot_steps, len(planets))) | units.MEarth
 
     gas = []
     solid = []
     disk_time = []
 
-    for i in range(N_plot_steps+1):
-        
-        if (i) * dt_plot < t_birth:
-            system.codes[1].evolve_model( (i) * dt_plot )
+    for i, ti in enumerate(times):
+        system.codes[1].code.set_parameter(1, ( M_dot_ph_ex[i] ).value_in(units.g/units.s))
+        if ti < t_birth:
+            system.codes[1].evolve_model( ti )
             system._sync_code_to_codes(1, [0,2])
             system.codes[0].model_time = system.codes[1].model_time
             system.codes[2].model_time = system.codes[1].model_time
             system.model_time = system.codes[1].model_time
 
-
-        elif (i-1) * dt_plot < t_birth:
+        elif i==0:
             system.codes[1].evolve_model( t_birth )
             system._sync_code_to_codes(1, [0,2])
             system.codes[0].model_time = system.codes[1].model_time
             system.codes[2].model_time = system.codes[1].model_time
             system.model_time = system.codes[1].model_time
             
-            system.evolve_model( (i) * dt_plot )
+            system.evolve_model( ti )
+
+        elif times[i-1] <= t_birth:
+            system.codes[1].evolve_model( t_birth )
+            system._sync_code_to_codes(1, [0,2])
+            system.codes[0].model_time = system.codes[1].model_time
+            system.codes[2].model_time = system.codes[1].model_time
+            system.model_time = system.codes[1].model_time
+            
+            system.evolve_model( ti )
         else:
-            system.evolve_model( (i) * dt_plot )
+            system.evolve_model( ti )
 
         t[i] = system.codes[0].model_time
         a[i] = system.codes[0].planets.semimajor_axis
@@ -175,7 +186,7 @@ def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T
         if i%(int(N_plot_steps/N_snapshot)) == 0:
             disk_time.append(system.codes[0].model_time.value_in(units.kyr))
 
-            print(int(system.codes[0].model_time.value_in(units.kyr)), end_time.value_in(units.kyr))
+            print(int(system.codes[0].model_time.value_in(units.kyr)), times[-1].value_in(units.kyr), 'kyr')
             print('total', np.sum(system.codes[0].planets.dynamical_mass)/(1|units.MEarth),'Mearth')
             print('envelope', np.sum(system.codes[0].planets.envelope_mass)/(1|units.MEarth),'Mearth')
             solid.append(system.codes[0].disk.surface_solid.value_in(units.g/units.cm**2))  
@@ -193,7 +204,7 @@ def run_single_pps (fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T
 if __name__ == '__main__':
     
     # initialize planets.
-    a = [20] | units.AU
+    a = [2.27] | units.AU
     M = [1e-2 for i in range(len(a))] | units.MEarth
     planets = Particles(len(M),
         core_mass=M,
@@ -204,31 +215,32 @@ if __name__ == '__main__':
     planets.add_calculated_attribute('dynamical_mass', dynamical_mass)
 
     dt = 1 | units.kyr # timestep of the matrix
-    end_time = 1000. | units.kyr
-    dt_plot = end_time/1000
+    end_time = 1000. #| units.kyr
+    times = np.linspace(0, end_time, 1001) | units.kyr
+
     N_plot_disk = 10
     
-    M_star=1. | units.MSun
+    M_star=0.4 | units.MSun
 
     FeH = 0
     mu = 2.3
-    alpha = 1e-3
-    alpha_acc = 1e-3
+    alpha = 1e-6
+    alpha_acc = 1e-6
     gamma = 7/5
-    temp1 = 250|units.K
+    temp1 = 150|units.K
     beta_T = 3/7
 
     v_frag = 1e3 # cm/s
 
     fDG = 0.0134
-    Rdisk_in = 0.01 | units.AU
-    Rdisk_out = 300 | units.AU
+    Rdisk_in = 0.04 | units.AU
+    Rdisk_out = 85 | units.AU
     stokes_number = 1e-3
-    M_dot_ph_in = 1e-8 | units.MSun/units.yr
-    M_dot_ph_ex = 1e-10 | units.MSun/units.yr
+    # M_dot_ph_in = 1e-8 | units.MSun/units.yr
+    M_dot_ph_ex = 1e-10*np.ones(len(times)) | units.MSun/units.yr
 
-    t_birth = 0.25 | units.Myr   # Q: how do I force different functions to exchange informations at this moment??
+    t_birth = 0. | units.Myr
     filename = './'
-    system = run_single_pps(fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T, Rdisk_in, Rdisk_out, stokes_number, planets, M_star, M_dot_ph_in, M_dot_ph_ex, t_birth, dt, end_time, dt_plot, N_plot_disk)
+    system = run_single_pps(fDG, FeH, mu, v_frag, alpha, alpha_acc, gamma, temp1, beta_T, Rdisk_in, Rdisk_out, stokes_number, planets, M_star, M_dot_ph_ex, t_birth, dt, times, N_plot_disk, filename)
     
     sp.run(['python3', 'venice_pps_plot.py'])

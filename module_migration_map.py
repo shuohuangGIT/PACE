@@ -190,6 +190,8 @@ if __name__ == '__main__':
     ## calculate temperature
     temp1 = 150 | units.K
     temp_d = temp1*(disk.position.value_in(units.au))**(-beta_T)
+
+    # temp_d = np.maximum(temp1*(disk.position.value_in(units.au))**(-beta_T), 100) | units.K
     # dtgr = disk.surface_solid/disk.surface_gas
     # temp_d = np.array(cal_temperature(disk.position.value_in(units.cm),M_star.value_in(units.g), R_star.value_in(units.cm),
     #                                       Teff.value_in(units.K), disk.alpha[0], disk.surface_gas.value_in(units.g/units.cm**2), dtgr)) |units.K
