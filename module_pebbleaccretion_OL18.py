@@ -114,7 +114,7 @@ class PebbleGasAccretion:
             beta = - np.log(sigmag[int(ip[i])+1]/sigmag[int(ip[i])])/np.log(Rdisk[int(ip[i])+1]/Rdisk[int(ip[i])])
 
             H = (Hdisk[int(ip[i])]-Hdisk[int(ip[i])+1])*(Rdisk[int(ip[i])]-ap)/(Rdisk[int(ip[i])]-Rdisk[int(ip[i])+1])+Hdisk[int(ip[i])]
-            miso = (25|units.MEarth)*(0.34*(-3/np.log10(self.disk.alpha[int(ip[i])]))**4+0.66)*(1-(-1.5-0.5*xi-beta+2.5)/6)*(H/ap/0.05)**3
+            miso = (25|units.MEarth)*(0.34*(-3/np.log10(self.disk.alpha[int(ip[i])]))**4+0.66)*(1-(-1.5-0.5*xi-beta+2.5)/6)*(H/ap/0.05)**3 * (Mstar.value_in(units.MSun))
 
             misos[i] = miso
             sigmadp = (sigmad[int(ip[i])]-sigmad[int(ip[i])+1])*(Rdisk[int(ip[i])]-ap)/(Rdisk[int(ip[i])]-Rdisk[int(ip[i])+1])+sigmad[int(ip[i])]
@@ -130,7 +130,7 @@ class PebbleGasAccretion:
                     hgas = H/ap
                     Vk = np.sqrt(constants.G*Mstar/ap)
                     epsilon = OL18.epsilon(ep=0, tau=self.disk.st[int(ip[i])], qp=mc/Mstar, eta = eta, hgas=hgas, alphaz=self.disk.alpha[int(ip[i])], Rp=(1|units.REarth)/ap)
-                    
+                    epsilon = np.minimum(epsilon,1)
                     if self.disk.vd[int(ip[i])].value_in(units.cm/units.s) == 0.:
                         self.disk.vd[int(ip[i])] = -2* self.disk.st[int(ip[i])]* eta * Vk
                         self.disk.vd[int(ip[i])] -= 3/2*self.disk.alpha_acc[int(ip[i])] * hgas**2* Vk  # motion is relative to the gas accretion
@@ -265,9 +265,7 @@ def run_single_pps (disk, planets, Miso1, star_mass, dt, end_time, dt_plot):
     system.codes[1].disk = disk
     system.codes[1].star.mass = star_mass
     system.codes[1].TypeI = False
-
-    print(Miso1.value_in(units.MEarth))
-
+    
     N_plot_steps = int(end_time/dt_plot)
     t = np.zeros((N_plot_steps+1)) | units.Myr
     a = np.zeros((N_plot_steps+1, len(planets))) | units.au
@@ -328,7 +326,7 @@ def run_single_pps (disk, planets, Miso1, star_mass, dt, end_time, dt_plot):
 if __name__ == '__main__':
 
     M0 = 0.01
-    a = [5,10, 15, 20, 25.] | units.AU
+    a = [25.] | units.AU
 
     M = [M0 for i in range(len(a))] | units.MEarth
     
@@ -345,21 +343,21 @@ if __name__ == '__main__':
     dt_plot = end_time/1000
     disk = new_regular_grid(([pre_ndisk]), [1]|units.au)
 
-    sigmag_0 = 2400 | units.g/units.cm**2
-    fg = 0.1
+    sigmag_0 = 1700 | units.g/units.cm**2
+    fg = 1
     beta = 15/14
     Rdisk_in = 0.03 | units.AU
     Rdisk_out = 30 | units.AU
-    fDG, FeH, xi, star_mass = 0.006, 0, 3/7, 1|units.MSun
+    fDG, FeH, xi, star_mass = 0.006, 0, 3/7, 0.1|units.MSun
     mu = 2.3
     stokes_number = 0.01
-    alpha_acc = 1e-2
+    alpha_acc = 1e-3
     alpha = 1e-4
 
     disk.position = Rdisk0(Rdisk_in, Rdisk_out, pre_ndisk)
     disk.surface_gas = fg*sigmag_0 * (disk.position.value_in(units.au))**(-beta)
 
-    T1 = 150|units.K
+    T1 = 100 * star_mass.value_in(units.MSun)**(1/4) |units.K 
     T = T1*(disk.position.value_in(units.au))**(-xi)
     disk.surface_solid = disk.surface_gas *fDG
     disk.scale_height = sound_speed(T, mu)/np.sqrt(constants.G*star_mass/disk.position**3)
@@ -377,11 +375,11 @@ if __name__ == '__main__':
     kmig = (1.36+0.62*beta+0.43*xi)*2
 
     # pebble isolation mass
-    vk1 = np.sqrt(constants.G*(1|units.MSun)/(1|units.au)) # keplerian velocity at r0
-    Miso1 = (25|units.MEarth)*(0.34*(-3/np.log10(alpha))**4+0.66)*(1-(-1.5-0.5*xi-beta+2.5)/6)*(cs1/vk1/0.05)**3
+    vk1 = np.sqrt(constants.G*(star_mass)/(1|units.au)) # keplerian velocity at r0
+    Miso1 = (25|units.MEarth)*(0.34*(-3/np.log10(alpha))**4+0.66)*(1-(-1.5-0.5*xi-beta+2.5)/6)*(cs1/vk1/0.05)**3 * star_mass.value_in(units.MSun)
 
     system,ax = run_single_pps(disk, planets, Miso1, star_mass, dt, end_time, dt_plot)
-
+    print(Miso1.value_in(units.MEarth))
     for i,r0 in enumerate(a):
         
         riso = 10**np.linspace(-1,2,1000) | units.au
