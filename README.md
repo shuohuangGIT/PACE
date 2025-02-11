@@ -10,4 +10,6 @@ The file extra_funcs.py defines some extra functions used in the files. parames.
 
 However, venice.py, symmetric_matrix.py are src files of Venice (Wilhlem et al. in prep). OL18.py is the source file to calculate pebble accretion \citep{Ormel & Liu 2018}.
 
-hi
+## 3. Test run
+Run the test_run.py in the test_run file. 
+
