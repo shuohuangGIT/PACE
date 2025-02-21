@@ -10,5 +10,8 @@ The file extra_funcs.py defines some extra functions used in the files. parames.
 However, venice.py, symmetric_matrix.py are src files of Venice (Wilhlem et al. in prep). OL18.py is the source file to calculate pebble accretion \citep{Ormel & Liu 2018}.
 
 ## 3. Test run
-Run the test_run.py in the test_run file. 
+key file for vader: PACE_vader/PACE/amuse_vader_src/vader should be in the amuse vader community (amuse/src/amuse/community/vader/src/prob). The worker file should be included. Maybe the easiest (but most risky) way is to replace the vader file in the community.
+compile: make vader.code
+If succeed, run: python3 test_run.py. In principle, it should form planet. You can monitor the growth and migration of planet by compile read_planet_evo.py
+Key function in the python script: run_single_pps (locates in venice_pps_setup_pebb_vader_OL18.py)
 
